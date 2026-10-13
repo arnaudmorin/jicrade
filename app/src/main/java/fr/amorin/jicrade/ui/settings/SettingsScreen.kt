@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,8 +49,8 @@ import fr.amorin.jicrade.sync.Notifications
 
 private val intervals = listOf(30, 60, 120, 300)
 private val priorities = listOf("P1", "P2", "P3", "P4", "P5")
-private val notificationModes = listOf(NotificationMode.ON_CALL to "On-call only", NotificationMode.ALWAYS to "Always", NotificationMode.NEVER to "Never")
-private val pollingModes = listOf(PollingMode.AUTO to "Automatic", PollingMode.ON to "Always on", PollingMode.OFF to "Off")
+private val notificationModes = listOf(NotificationMode.ON_CALL to "On call", NotificationMode.ALWAYS to "Always", NotificationMode.NEVER to "Never")
+private val pollingModes = listOf(PollingMode.AUTO to "Auto", PollingMode.ON to "Always", PollingMode.OFF to "Off")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +89,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             selected = state.settings.notificationMode == mode,
                             onClick = { if (mode != NotificationMode.NEVER) ensureNotificationPermission(); vm.setNotificationMode(mode) },
                             shape = SegmentedButtonDefaults.itemShape(i, notificationModes.size),
-                        ) { Text(label) }
+                        ) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }
                 Text(
@@ -140,7 +141,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             selected = state.settings.pollingMode == mode,
                             onClick = { if (mode != PollingMode.OFF) ensureNotificationPermission(); vm.setPollingMode(mode) },
                             shape = SegmentedButtonDefaults.itemShape(i, pollingModes.size),
-                        ) { Text(label) }
+                        ) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }
                 Text(
