@@ -65,7 +65,7 @@ fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hilt
             TopAppBar(
                 title = {
                     Column {
-                        Text(state.teamName.ifBlank { "Alerts" })
+                        Text(state.teamName.ifBlank { "Alerts" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
                         if (state.lastSyncAt > 0 || state.status.label != null) {
                             Text(
                                 listOfNotNull(
