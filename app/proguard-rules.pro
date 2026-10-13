@@ -1,0 +1,7 @@
+-keepattributes *Annotation*, InnerClasses
+-dontwarn org.bouncycastle.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+-keep,includedescriptorclasses class fr.amorin.jicrade.**$$serializer { *; }
+-keepclassmembers class fr.amorin.jicrade.** { *** Companion; }
+-keepclasseswithmembers class fr.amorin.jicrade.** { kotlinx.serialization.KSerializer serializer(...); }
