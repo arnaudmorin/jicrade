@@ -1,5 +1,9 @@
 # Jicrade
 
+> **Warning: development build.** This app is an early work in progress intended for
+> development and personal testing only. Expect bugs, missing features and breaking changes.
+> Do not rely on it as your only on-call alerting channel.
+
 A small Android app that replaces the retired Opsgenie mobile app for teams moved to
 **Jira Service Management Operations**. It talks directly to the JSM Operations REST API
 (the rehosted Opsgenie API) with your own Atlassian API token.
@@ -63,3 +67,7 @@ app/src/main/java/fr/amorin/jicrade/
   sync           WorkManager sync, on-call foreground service, notifications
   ui             Compose screens: setup, alerts, alert detail, on-call, settings
 ```
+
+## License
+
+Copyright 2026 Arnaud Morin. Licensed under the Apache License, Version 2.0; see `LICENSE`.
