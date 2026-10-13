@@ -12,6 +12,3 @@ data class JiraUserDto(
     val emailAddress: String? = null,
     val avatarUrls: Map<String, String> = emptyMap(),
 )
-
-@Serializable
-data class JiraUsersPageDto(val values: List<JiraUserDto> = emptyList())

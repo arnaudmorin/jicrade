@@ -41,19 +41,16 @@ object SyncScheduler {
     private const val PERIODIC = "alert-sync-periodic"
     private const val ONCE = "alert-sync-now"
 
-    fun ensurePeriodic(context: Context) {
+    fun applyBackgroundSync(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        if (!enabled) {
+            wm.cancelUniqueWork(PERIODIC)
+            return
+        }
         val request = PeriodicWorkRequestBuilder<AlertSyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
-    }
-
-    fun cancelPeriodic(context: Context) {
-        WorkManager.getInstance(context).cancelUniqueWork(PERIODIC)
-    }
-
-    fun applyBackgroundSync(context: Context, enabled: Boolean) {
-        if (enabled) ensurePeriodic(context) else cancelPeriodic(context)
+        wm.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
     }
 
     fun syncNow(context: Context) {

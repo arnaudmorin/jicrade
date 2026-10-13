@@ -1,5 +1,6 @@
 package fr.amorin.jicrade.ui.setup
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -31,83 +32,93 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.clickable
+import fr.amorin.jicrade.data.repo.VerifiedAccount
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(vm: SetupViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    Scaffold(topBar = { TopAppBar(title = { Text(if (state.verified == null) "Connect to Jira Service Management" else "Choose your team") }) }) { padding ->
-        val verified = state.verified
-        if (verified != null) {
-            LazyColumn(Modifier.padding(padding).fillMaxSize()) {
-                item {
-                    Text(
-                        "Logged in as ${verified.displayName}. Alerts and schedules of the selected team will be shown.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                }
-                items(verified.teams, key = { it.teamId }) { team ->
-                    ListItem(
-                        headlineContent = { Text(team.teamName) },
-                        modifier = Modifier.clickable { vm.chooseTeam(team) },
-                    )
-                }
-                item { TextButton(onClick = vm::back, modifier = Modifier.padding(16.dp)) { Text("Back") } }
-            }
-            return@Scaffold
+    val verified = state.verified
+    Scaffold(topBar = { TopAppBar(title = { Text(if (verified == null) "Connect to Jira Service Management" else "Choose your team") }) }) { padding ->
+        if (verified == null) {
+            CredentialsForm(state, vm, Modifier.padding(padding))
+        } else {
+            TeamPicker(verified, vm, Modifier.padding(padding))
         }
-        Column(
-            Modifier.padding(padding).padding(16.dp).fillMaxSize().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    }
+}
+
+@Composable
+private fun TeamPicker(account: VerifiedAccount, vm: SetupViewModel, modifier: Modifier) {
+    LazyColumn(modifier.fillMaxSize()) {
+        item {
             Text(
-                "Use your Atlassian account email and an API token created at id.atlassian.com/manage-profile/security/api-tokens.",
+                "Logged in as ${account.displayName}. Alerts and schedules of the selected team will be shown.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            OutlinedTextField(
-                value = state.site, onValueChange = vm::onSite, singleLine = true,
-                label = { Text("Site") }, suffix = { Text(".atlassian.net") },
-                placeholder = { Text("mycompany") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.email, onValueChange = vm::onEmail, singleLine = true,
-                label = { Text("Email") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.token, onValueChange = vm::onToken, singleLine = true,
-                label = { Text("API token") },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextButton(onClick = vm::toggleAdvanced) { Text(if (state.showAdvanced) "Hide advanced" else "Advanced") }
-            if (state.showAdvanced) {
-                OutlinedTextField(
-                    value = state.cloudId, onValueChange = vm::onCloudId, singleLine = true,
-                    label = { Text("Cloud ID (optional, auto-detected)") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (state.error != null) {
-                Text(state.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(Modifier.height(4.dp))
-            Button(onClick = vm::verify, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) {
-                if (state.loading) CircularProgressIndicator(Modifier.height(18.dp), strokeWidth = 2.dp) else Text("Connect")
-            }
-            Spacer(Modifier.weight(1f))
-            Text(
-                "The token is stored encrypted on this device only.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
+                modifier = Modifier.padding(16.dp),
             )
         }
+        items(account.teams, key = { it.teamId }) { team ->
+            ListItem(
+                headlineContent = { Text(team.teamName) },
+                modifier = Modifier.clickable { vm.chooseTeam(team) },
+            )
+        }
+        item { TextButton(onClick = vm::back, modifier = Modifier.padding(16.dp)) { Text("Back") } }
+    }
+}
+
+@Composable
+private fun CredentialsForm(state: SetupState, vm: SetupViewModel, modifier: Modifier) {
+    Column(
+        modifier.padding(16.dp).fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            "Use your Atlassian account email and an API token created at id.atlassian.com/manage-profile/security/api-tokens.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = state.site, onValueChange = vm::onSite, singleLine = true,
+            label = { Text("Site") }, suffix = { Text(".atlassian.net") },
+            placeholder = { Text("mycompany") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = state.email, onValueChange = vm::onEmail, singleLine = true,
+            label = { Text("Email") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = state.token, onValueChange = vm::onToken, singleLine = true,
+            label = { Text("API token") },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        TextButton(onClick = vm::toggleAdvanced) { Text(if (state.showAdvanced) "Hide advanced" else "Advanced") }
+        if (state.showAdvanced) {
+            OutlinedTextField(
+                value = state.cloudId, onValueChange = vm::onCloudId, singleLine = true,
+                label = { Text("Cloud ID (optional, auto-detected)") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (state.error != null) {
+            Text(state.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        }
+        Spacer(Modifier.height(4.dp))
+        Button(onClick = vm::verify, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) {
+            if (state.loading) CircularProgressIndicator(Modifier.height(18.dp), strokeWidth = 2.dp) else Text("Connect")
+        }
+        Spacer(Modifier.weight(1f))
+        Text(
+            "The token is stored encrypted on this device only.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
     }
 }

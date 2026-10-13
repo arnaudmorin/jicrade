@@ -16,8 +16,8 @@ interface AlertDao {
     @Query("SELECT * FROM alerts WHERE id = :id")
     fun observe(id: String): Flow<AlertEntity?>
 
-    @Query("SELECT id FROM alerts")
-    suspend fun ids(): List<String>
+    @Query("SELECT * FROM alerts")
+    suspend fun all(): List<AlertEntity>
 
     @Query("SELECT * FROM alerts WHERE id = :id")
     suspend fun get(id: String): AlertEntity?
@@ -30,9 +30,6 @@ interface AlertDao {
 
     @Query("DELETE FROM alerts WHERE id NOT IN (:keep)")
     suspend fun deleteOthers(keep: List<String>)
-
-    @Query("DELETE FROM alerts")
-    suspend fun clear()
 
     @Transaction
     suspend fun replaceAll(alerts: List<AlertEntity>) {
@@ -51,9 +48,6 @@ interface UserDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(users: List<UserEntity>)
-
-    @Query("DELETE FROM users")
-    suspend fun clear()
 }
 
 @Dao
@@ -73,18 +67,14 @@ interface ScheduleDao {
     @Insert
     suspend fun insertPeriods(periods: List<OnCallPeriodEntity>)
 
-    @Query("DELETE FROM on_call_periods WHERE scheduleId = :scheduleId")
-    suspend fun deletePeriods(scheduleId: String)
-
-    @Query("DELETE FROM schedules")
-    suspend fun clearSchedules()
-
     @Query("DELETE FROM on_call_periods")
     suspend fun clearPeriods()
 
     @Transaction
-    suspend fun replacePeriods(scheduleId: String, periods: List<OnCallPeriodEntity>) {
-        deletePeriods(scheduleId)
+    suspend fun replaceAll(schedules: List<ScheduleEntity>, periods: List<OnCallPeriodEntity>) {
+        upsertSchedules(schedules)
+        deleteSchedulesOthers(schedules.map { it.id })
+        clearPeriods()
         insertPeriods(periods)
     }
 }

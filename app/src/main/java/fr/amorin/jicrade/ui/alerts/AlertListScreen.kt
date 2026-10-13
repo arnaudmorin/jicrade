@@ -20,7 +20,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -106,9 +105,9 @@ fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hilt
                             AlertRow(
                                 alert = alert,
                                 onClick = { onOpenAlert(alert.id) },
-                                onAck = if (alert.isOpen) ({ vm.acknowledge(alert.id) }) else null,
-                                onUnack = if (alert.isAcked) ({ vm.unacknowledge(alert.id) }) else null,
-                                onClose = if (!alert.isClosed) ({ vm.close(alert.id) }) else null,
+                                onAck = { vm.acknowledge(alert.id) },
+                                onUnack = { vm.unacknowledge(alert.id) },
+                                onClose = { vm.close(alert.id) },
                             )
                             HorizontalDivider()
                         }
@@ -120,7 +119,7 @@ fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hilt
 }
 
 @Composable
-private fun AlertRow(alert: AlertEntity, onClick: () -> Unit, onAck: (() -> Unit)?, onUnack: (() -> Unit)?, onClose: (() -> Unit)?) {
+private fun AlertRow(alert: AlertEntity, onClick: () -> Unit, onAck: () -> Unit, onUnack: () -> Unit, onClose: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -143,16 +142,16 @@ private fun AlertRow(alert: AlertEntity, onClick: () -> Unit, onAck: (() -> Unit
                     ?: alert.source?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
-        if (onUnack != null) ActionIcon("Unack", onUnack) { Icon(Icons.Outlined.Undo, contentDescription = "Unacknowledge", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-        if (onAck != null) ActionIcon("Ack", onAck) { Icon(Icons.Default.Check, contentDescription = "Acknowledge", tint = MaterialTheme.colorScheme.primary) }
-        if (onClose != null) ActionIcon("Close", onClose) { Icon(Icons.Outlined.Cancel, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (alert.isAcked) ActionIcon("Unack", onUnack) { Icon(Icons.Outlined.Undo, contentDescription = "Unacknowledge", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (alert.isOpen) ActionIcon("Ack", onAck) { Icon(Icons.Default.Check, contentDescription = "Acknowledge", tint = MaterialTheme.colorScheme.primary) }
+        if (!alert.isClosed) ActionIcon("Close", onClose) { Icon(Icons.Outlined.Cancel, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
 @Composable
 private fun ActionIcon(label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(52.dp)) {
-        IconButton(onClick = onClick, modifier = Modifier.size(36.dp), colors = IconButtonDefaults.iconButtonColors()) { icon() }
+        IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) { icon() }
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

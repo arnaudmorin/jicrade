@@ -3,7 +3,6 @@ package fr.amorin.jicrade.ui.settings
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,11 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.amorin.jicrade.BuildConfig
+import fr.amorin.jicrade.sync.Notifications
 
 private val intervals = listOf(30, 60, 120, 300)
 
@@ -57,9 +56,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
 
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     fun ensureNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!Notifications.canPost(context)) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->

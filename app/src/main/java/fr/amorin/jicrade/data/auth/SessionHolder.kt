@@ -13,6 +13,7 @@ class SessionHolder @Inject constructor(private val store: CredentialsStore) {
     private val _session = MutableStateFlow(store.load())
     val session: StateFlow<Session?> = _session.asStateFlow()
 
+    /** Credentials being verified during setup, before any session exists. */
     @Volatile
     var pending: Credentials? = null
 

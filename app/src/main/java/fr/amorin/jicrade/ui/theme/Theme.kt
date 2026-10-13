@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 private val Light = lightColorScheme(primary = Color(0xFFB3261E), secondary = Color(0xFF625B71))
 private val Dark = darkColorScheme(primary = Color(0xFFF2B8B5), secondary = Color(0xFFCCC2DC))
 
-val PriorityColors = mapOf(
+private val priorityColors = mapOf(
     "P1" to Color(0xFFD32F2F),
     "P2" to Color(0xFFF57C00),
     "P3" to Color(0xFFFBC02D),
@@ -22,7 +22,7 @@ val PriorityColors = mapOf(
     "P5" to Color(0xFF757575),
 )
 
-fun priorityColor(priority: String): Color = PriorityColors[priority] ?: Color(0xFF757575)
+fun priorityColor(priority: String): Color = priorityColors[priority] ?: Color(0xFF757575)
 
 @Composable
 fun JicradeTheme(content: @Composable () -> Unit) {

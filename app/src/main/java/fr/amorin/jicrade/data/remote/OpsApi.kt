@@ -9,7 +9,6 @@ import fr.amorin.jicrade.data.remote.dto.NoteDto
 import fr.amorin.jicrade.data.remote.dto.NoteRequest
 import fr.amorin.jicrade.data.remote.dto.NotesPageDto
 import fr.amorin.jicrade.data.remote.dto.OnCallUsersDto
-import fr.amorin.jicrade.data.remote.dto.RequestStatusDto
 import fr.amorin.jicrade.data.remote.dto.SnoozeRequest
 import fr.amorin.jicrade.data.remote.dto.SuccessDto
 import fr.amorin.jicrade.data.remote.dto.TimelineDto
@@ -48,9 +47,6 @@ interface OpsApi {
 
     @POST("jsm/ops/api/{cloudId}/v1/alerts/{id}/snooze")
     suspend fun snooze(@Path("cloudId") cloudId: String, @Path("id") id: String, @Body body: SnoozeRequest): SuccessDto
-
-    @GET("jsm/ops/api/{cloudId}/v1/alerts/requests/{requestId}")
-    suspend fun requestStatus(@Path("cloudId") cloudId: String, @Path("requestId") requestId: String): RequestStatusDto
 
     @GET("jsm/ops/api/{cloudId}/v1/alerts/{id}/notes")
     suspend fun notes(

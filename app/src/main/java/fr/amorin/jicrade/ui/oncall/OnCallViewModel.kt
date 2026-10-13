@@ -50,7 +50,7 @@ class OnCallViewModel @Inject constructor(
 
     val state: StateFlow<OnCallState> = combine(onCall.snapshot(), sessionHolder.session, transient) { snap, session, t ->
         val me = session?.accountId.orEmpty()
-        t.copy(schedules = snap.toCards(me), names = snap.names, accountId = me, loadedOnce = t.loadedOnce || snap.schedules.isNotEmpty())
+        t.copy(schedules = snap.toCards(me), names = snap.names, accountId = me)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OnCallState())
 
     init {

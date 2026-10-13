@@ -20,7 +20,6 @@ import fr.amorin.jicrade.data.repo.AlertRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -40,21 +39,18 @@ class OnCallPollingService : LifecycleService() {
             stopSelf()
             return START_NOT_STICKY
         }
-        startInForeground(buildNotification("Starting…"))
-        if (loop == null) loop = lifecycleScope.launch { run() }
-        return START_STICKY
-    }
-
-    private fun startInForeground(notification: Notification) {
+        val notification = buildNotification("Starting…")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        if (loop == null) loop = lifecycleScope.launch { run() }
+        return START_STICKY
     }
 
     private suspend fun run() {
-        while (lifecycleScope.isActive) {
+        while (true) {
             val interval = settings.settings.first().pollIntervalSeconds.coerceIn(15, 600)
             val status = try {
                 val result = alerts.sync()
@@ -68,7 +64,7 @@ class OnCallPollingService : LifecycleService() {
             } catch (e: Exception) {
                 "Error: ${e.message ?: e.javaClass.simpleName}"
             }
-            runCatching { startInForeground(buildNotification("$status · every ${interval}s")) }
+            Notifications.post(this, NOTIFICATION_ID, buildNotification("$status · every ${interval}s"))
             delay(interval * 1000L)
         }
     }
@@ -91,11 +87,6 @@ class OnCallPollingService : LifecycleService() {
             .setContentIntent(open)
             .addAction(0, "Stop", stop)
             .build()
-    }
-
-    override fun onDestroy() {
-        loop?.cancel()
-        super.onDestroy()
     }
 
     companion object {

@@ -3,6 +3,8 @@ package fr.amorin.jicrade.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Database(
     entities = [AlertEntity::class, UserEntity::class, ScheduleEntity::class, OnCallPeriodEntity::class],
@@ -15,10 +17,5 @@ abstract class JicradeDb : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun scheduleDao(): ScheduleDao
 
-    suspend fun clearAll() {
-        alertDao().clear()
-        userDao().clear()
-        scheduleDao().clearSchedules()
-        scheduleDao().clearPeriods()
-    }
+    suspend fun clearAll() = withContext(Dispatchers.IO) { clearAllTables() }
 }

@@ -7,6 +7,7 @@ import fr.amorin.jicrade.data.local.ScheduleEntity
 import fr.amorin.jicrade.data.remote.OpsApi
 import fr.amorin.jicrade.data.remote.api
 import fr.amorin.jicrade.data.remote.dto.ScheduleDto
+import fr.amorin.jicrade.data.remote.dto.TimelineDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.json.Json
@@ -21,9 +22,7 @@ data class ScheduleOnCall(
 data class OnCallSnapshot(
     val schedules: List<ScheduleOnCall>,
     val names: Map<String, String>,
-) {
-    fun name(id: String): String = names[id] ?: id.takeLast(6)
-}
+)
 
 @Singleton
 class OnCallRepository @Inject constructor(
@@ -33,6 +32,8 @@ class OnCallRepository @Inject constructor(
     private val users: UserRepository,
     private val json: Json,
 ) {
+    private val cloudId: String get() = sessionHolder.require().cloudId
+
     fun snapshot(): Flow<OnCallSnapshot> = combine(
         scheduleDao.observeSchedules(),
         scheduleDao.observePeriods(),
@@ -44,57 +45,56 @@ class OnCallRepository @Inject constructor(
 
     suspend fun refresh() {
         val session = sessionHolder.require()
-        val cloudId = session.cloudId
-        val all = mutableListOf<ScheduleDto>()
-        var offset = 0
-        while (true) {
-            val page = api(json) { opsApi.schedules(cloudId, size = 50, offset = offset) }
-            all += page.values
-            if (page.values.isEmpty() || page.links?.next == null) break
-            offset += page.values.size
-        }
-        val mine = all.filter { it.teamId == session.teamId && it.enabled }
         val now = System.currentTimeMillis()
-        val ids = mutableSetOf<String>()
-        val entities = mine.map { s ->
-            val onCall = runCatching { api(json) { opsApi.onCalls(cloudId, s.id).onCallUsers } }.getOrDefault(emptyList())
-            val next = runCatching { api(json) { opsApi.nextOnCalls(cloudId, s.id).nextOnCallUsers } }.getOrDefault(emptyList())
-            ids += onCall; ids += next
-            val timeline = runCatching { api(json) { opsApi.timeline(cloudId, s.id, date = formatIso(now)) } }.getOrNull()
-            val periods = timeline?.finalTimeline?.rotations.orEmpty().flatMap { rot ->
-                rot.periods.mapNotNull { p ->
-                    val start = parseInstant(p.startDate) ?: return@mapNotNull null
-                    val end = parseInstant(p.endDate) ?: return@mapNotNull null
-                    val responders = (p.flattenedResponders.ifEmpty { listOfNotNull(p.responder) })
-                        .filter { it.type == "user" && it.id != null }
-                        .map { it.id!! }
-                    ids += responders
-                    OnCallPeriodEntity(
-                        scheduleId = s.id,
-                        rotationName = rot.name ?: "",
-                        start = start,
-                        end = end,
-                        type = p.type ?: "base",
-                        responderIds = responders,
-                    )
-                }
-            }
-            scheduleDao.replacePeriods(s.id, periods)
+        val mine = fetchSchedules().filter { it.teamId == session.teamId && it.enabled }
+
+        val schedules = mine.map { s ->
             ScheduleEntity(
                 id = s.id,
                 name = s.name ?: s.id,
                 teamId = s.teamId,
                 timezone = s.timezone,
                 enabled = s.enabled,
-                onCallIds = onCall,
-                nextOnCallIds = next,
+                onCallIds = runCatching { api(json) { opsApi.onCalls(cloudId, s.id).onCallUsers } }.getOrDefault(emptyList()),
+                nextOnCallIds = runCatching { api(json) { opsApi.nextOnCalls(cloudId, s.id).nextOnCallUsers } }.getOrDefault(emptyList()),
                 fetchedAt = now,
             )
         }
-        scheduleDao.upsertSchedules(entities)
-        scheduleDao.deleteSchedulesOthers(entities.map { it.id })
-        users.ensure(ids + session.accountId)
+        val periods = mine.flatMap { s ->
+            runCatching { api(json) { opsApi.timeline(cloudId, s.id, date = formatIso(now)) } }
+                .getOrNull()?.toPeriods(s.id).orEmpty()
+        }
+        scheduleDao.replaceAll(schedules, periods)
+
+        val accountIds = schedules.flatMap { it.onCallIds + it.nextOnCallIds } + periods.flatMap { it.responderIds }
+        users.ensure(accountIds + session.accountId)
     }
+
+    private suspend fun fetchSchedules(): List<ScheduleDto> {
+        val out = mutableListOf<ScheduleDto>()
+        while (true) {
+            val page = api(json) { opsApi.schedules(cloudId, size = 50, offset = out.size) }
+            out += page.values
+            if (page.values.isEmpty() || page.links?.next == null) return out
+        }
+    }
+
+    private fun TimelineDto.toPeriods(scheduleId: String): List<OnCallPeriodEntity> =
+        finalTimeline?.rotations.orEmpty().flatMap { rotation ->
+            rotation.periods.mapNotNull { p ->
+                val start = parseInstant(p.startDate) ?: return@mapNotNull null
+                val end = parseInstant(p.endDate) ?: return@mapNotNull null
+                val responders = p.flattenedResponders.ifEmpty { listOfNotNull(p.responder) }
+                OnCallPeriodEntity(
+                    scheduleId = scheduleId,
+                    rotationName = rotation.name ?: "",
+                    start = start,
+                    end = end,
+                    type = p.type ?: "base",
+                    responderIds = responders.filter { it.type == "user" }.mapNotNull { it.id },
+                )
+            }
+        }
 }
 
 fun List<OnCallPeriodEntity>.currentShift(accountId: String, now: Long = System.currentTimeMillis()): OnCallPeriodEntity? =

@@ -58,7 +58,7 @@ object Notifications {
         Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    private fun post(context: Context, id: Int, notification: android.app.Notification) {
+    fun post(context: Context, id: Int, notification: android.app.Notification) {
         if (!canPost(context)) return
         try {
             NotificationManagerCompat.from(context).notify(id, notification)

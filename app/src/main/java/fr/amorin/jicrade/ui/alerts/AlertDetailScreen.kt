@@ -2,6 +2,7 @@ package fr.amorin.jicrade.ui.alerts
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,7 +72,7 @@ fun AlertDetailScreen(onBack: () -> Unit, vm: AlertDetailViewModel = hiltViewMod
                 if (!state.loading) Text("Alert not found", Modifier.padding(16.dp))
                 return@Scaffold
             }
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item { Header(alert) }
                 item { ActionBar(alert, state.busy, vm) }
                 if (alert.description != null) item { Section("Description") { Text(alert.description) } }

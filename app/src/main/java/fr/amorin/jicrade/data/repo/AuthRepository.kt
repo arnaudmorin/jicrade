@@ -38,10 +38,9 @@ class AuthRepository @Inject constructor(
             val cloudId = cloudIdOverride?.takeIf { it.isNotBlank() }
                 ?: api(json, "cloud id lookup") { jiraApi.tenantInfo(creds.jiraBaseUrl + "_edge/tenant_info").cloudId }
             val me = api(json, "Jira profile") { jiraApi.myself(creds.jiraBaseUrl + "rest/api/3/myself") }
-            val teams = api(json, "Operations teams") { json.decodeTeams(opsApi.teams(cloudId)) }.sortedBy { it.teamName.lowercase() }
-            return VerifiedAccount(creds, cloudId, me.accountId, me.displayName ?: me.emailAddress ?: creds.email, teams)
+            return VerifiedAccount(creds, cloudId, me.accountId, me.displayName ?: me.emailAddress ?: creds.email, fetchTeams(cloudId))
         } finally {
-            if (sessionHolder.session.value == null) sessionHolder.pending = null
+            sessionHolder.pending = null
         }
     }
 
@@ -58,10 +57,10 @@ class AuthRepository @Inject constructor(
         )
     }
 
-    suspend fun teams(): List<TeamDto> {
-        val s = sessionHolder.require()
-        return api(json, "Operations teams") { json.decodeTeams(opsApi.teams(s.cloudId)) }.sortedBy { it.teamName.lowercase() }
-    }
+    suspend fun teams(): List<TeamDto> = fetchTeams(sessionHolder.require().cloudId)
+
+    private suspend fun fetchTeams(cloudId: String): List<TeamDto> =
+        api(json, "Operations teams") { json.decodeTeams(opsApi.teams(cloudId)) }.sortedBy { it.teamName.lowercase() }
 
     suspend fun switchTeam(team: TeamDto) {
         sessionHolder.update { it.copy(teamId = team.teamId, teamName = team.teamName) }

@@ -46,15 +46,6 @@ data class ListAlertsDto(val values: List<AlertDto> = emptyList(), val count: In
 data class SuccessDto(val result: String? = null, val requestId: String? = null, val took: Double? = null)
 
 @Serializable
-data class RequestStatusDto(
-    val action: String? = null,
-    val processedAt: String? = null,
-    val isSuccess: Boolean? = null,
-    val status: String? = null,
-    val alertId: String? = null,
-)
-
-@Serializable
 data class NoteDto(
     val id: String? = null,
     val createdAt: String? = null,
@@ -85,9 +76,6 @@ data class NoteRequest(val note: String)
 
 @Serializable
 data class TeamDto(val teamId: String, val teamName: String)
-
-@Serializable
-data class TeamsDto(val platformTeams: List<TeamDto> = emptyList())
 
 @Serializable
 data class ScheduleDto(

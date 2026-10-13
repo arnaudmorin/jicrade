@@ -29,7 +29,6 @@ data class AlertDetailState(
     val loading: Boolean = true,
     val busy: Boolean = false,
     val error: String? = null,
-    val closed: Boolean = false,
 )
 
 @HiltViewModel

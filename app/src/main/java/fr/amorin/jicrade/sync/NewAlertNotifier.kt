@@ -14,11 +14,11 @@ class NewAlertNotifier @Inject constructor(
 ) {
     suspend fun notify(result: SyncResult) {
         val prefs = settings.current()
-        result.acked.forEach { Notifications.cancel(context, it.id) }
+        result.resolved.forEach { Notifications.cancel(context, it.id) }
         if (!prefs.notificationsEnabled) return
         result.newAlerts.forEach { Notifications.showNewAlert(context, it) }
         if (prefs.notifyOnAck) {
-            result.acked.forEach { Notifications.showAcked(context, it) }
+            result.resolved.filter { it.isAcked }.forEach { Notifications.showAcked(context, it) }
         }
     }
 }

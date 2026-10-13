@@ -80,13 +80,13 @@ class AlertListViewModel @Inject constructor(
         }
     }
 
-    fun acknowledge(id: String) = run { alerts.acknowledge(id) }
-    fun unacknowledge(id: String) = run { alerts.unacknowledge(id) }
-    fun close(id: String) = run { alerts.close(id) }
+    fun acknowledge(id: String) = act { alerts.acknowledge(id) }
+    fun unacknowledge(id: String) = act { alerts.unacknowledge(id) }
+    fun close(id: String) = act { alerts.close(id) }
 
     fun clearError() = transient.update { it.copy(error = null) }
 
-    private fun run(block: suspend () -> Unit) {
+    private fun act(block: suspend () -> Unit) {
         viewModelScope.launch {
             try {
                 block()
