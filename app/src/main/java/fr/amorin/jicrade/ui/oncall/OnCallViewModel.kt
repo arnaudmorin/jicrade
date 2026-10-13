@@ -10,6 +10,7 @@ import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.OnCallSnapshot
 import fr.amorin.jicrade.data.repo.currentShift
 import fr.amorin.jicrade.data.repo.nextShift
+import fr.amorin.jicrade.sync.PollingController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +45,7 @@ data class OnCallState(
 @HiltViewModel
 class OnCallViewModel @Inject constructor(
     private val onCall: OnCallRepository,
+    private val polling: PollingController,
     sessionHolder: SessionHolder,
 ) : ViewModel() {
     private val transient = MutableStateFlow(OnCallState())
@@ -64,6 +66,7 @@ class OnCallViewModel @Inject constructor(
             try {
                 onCall.refresh()
                 transient.update { it.copy(refreshing = false, loadedOnce = true) }
+                polling.evaluate()
             } catch (e: Exception) {
                 transient.update { it.copy(refreshing = false, loadedOnce = true, error = e.toUserMessage()) }
             }

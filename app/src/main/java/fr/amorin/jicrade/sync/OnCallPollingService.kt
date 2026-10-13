@@ -14,11 +14,15 @@ import dagger.hilt.android.AndroidEntryPoint
 import fr.amorin.jicrade.MainActivity
 import fr.amorin.jicrade.R
 import fr.amorin.jicrade.data.auth.NotLoggedInException
+import fr.amorin.jicrade.data.local.PollingMode
 import fr.amorin.jicrade.data.local.SettingsStore
 import fr.amorin.jicrade.data.remote.ApiException
 import fr.amorin.jicrade.data.repo.AlertRepository
+import fr.amorin.jicrade.data.repo.OnCallRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -30,8 +34,19 @@ class OnCallPollingService : LifecycleService() {
     @Inject lateinit var alerts: AlertRepository
     @Inject lateinit var notifier: NewAlertNotifier
     @Inject lateinit var settings: SettingsStore
+    @Inject lateinit var onCall: OnCallRepository
 
     private var loop: Job? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        _running.value = true
+    }
+
+    override fun onDestroy() {
+        _running.value = false
+        super.onDestroy()
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -51,10 +66,14 @@ class OnCallPollingService : LifecycleService() {
 
     private suspend fun run() {
         while (true) {
-            val interval = settings.settings.first().pollIntervalSeconds.coerceIn(15, 600)
+            val prefs = settings.settings.first()
+            val interval = prefs.pollIntervalSeconds.coerceIn(15, 600)
             val status = try {
                 val result = alerts.sync()
                 notifier.notify(result)
+                if (prefs.pollingMode == PollingMode.AUTO && !onCall.amIOnCall()) {
+                    stopSelf(); return
+                }
                 "Last check ${LocalTime.now().format(TIME)} · ${result.total} alerts"
             } catch (e: NotLoggedInException) {
                 stopSelf(); return
@@ -93,6 +112,8 @@ class OnCallPollingService : LifecycleService() {
         private const val NOTIFICATION_ID = 1
         private const val ACTION_STOP = "fr.amorin.jicrade.STOP_POLLING"
         private val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+        private val _running = MutableStateFlow(false)
+        val running: StateFlow<Boolean> = _running
 
         fun start(context: Context) =
             ContextCompat.startForegroundService(context, Intent(context, OnCallPollingService::class.java))

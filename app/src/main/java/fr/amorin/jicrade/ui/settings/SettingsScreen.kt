@@ -41,9 +41,15 @@ import androidx.core.content.getSystemService
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.amorin.jicrade.BuildConfig
+import fr.amorin.jicrade.data.local.NotificationMode
+import fr.amorin.jicrade.data.local.PollingMode
+import fr.amorin.jicrade.ui.common.formatDateTime
 import fr.amorin.jicrade.sync.Notifications
 
 private val intervals = listOf(30, 60, 120, 300)
+private val priorities = listOf("P1", "P2", "P3", "P4", "P5")
+private val notificationModes = listOf(NotificationMode.ON_CALL to "On-call only", NotificationMode.ALWAYS to "Always", NotificationMode.NEVER to "Never")
+private val pollingModes = listOf(PollingMode.AUTO to "Automatic", PollingMode.ON to "Always on", PollingMode.OFF to "Off")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,22 +79,84 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             )
             HorizontalDivider()
 
+            val notificationsOn = state.settings.notificationMode != NotificationMode.NEVER
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Notifications", style = MaterialTheme.typography.labelLarge)
+                SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
+                    notificationModes.forEachIndexed { i, (mode, label) ->
+                        SegmentedButton(
+                            selected = state.settings.notificationMode == mode,
+                            onClick = { if (mode != NotificationMode.NEVER) ensureNotificationPermission(); vm.setNotificationMode(mode) },
+                            shape = SegmentedButtonDefaults.itemShape(i, notificationModes.size),
+                        ) { Text(label) }
+                    }
+                }
+                Text(
+                    when (state.settings.notificationMode) {
+                        NotificationMode.NEVER -> "Muted. Alerts are still synced but nothing is shown"
+                        NotificationMode.ALWAYS -> "Every new alert notifies, on call or not"
+                        NotificationMode.ON_CALL -> when {
+                            state.onCallNow -> "You are on call now, new alerts will notify"
+                            state.nextShiftStart != null -> "Not on call, silent until your shift on ${formatDateTime(state.nextShiftStart!!)}. Alerts addressed to you personally still notify"
+                            else -> "Not on call, silent. Alerts addressed to you personally still notify"
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             ListItem(
-                headlineContent = { Text("Alert notifications") },
-                supportingContent = { Text(if (state.settings.notificationsEnabled) "You will be notified of new alerts" else "Muted. Alerts are still synced but nothing is shown") },
-                trailingContent = {
-                    Switch(checked = state.settings.notificationsEnabled, onCheckedChange = { if (it) ensureNotificationPermission(); vm.setNotificationsEnabled(it) })
-                },
-            )
-            ListItem(
-                headlineContent = { Text("On-call mode") },
-                supportingContent = { Text("Keeps a foreground service polling for new alerts every few seconds. Turn on while you are on duty.") },
-                trailingContent = {
-                    Switch(checked = state.settings.onCallMode, onCheckedChange = { ensureNotificationPermission(); vm.setOnCallMode(it) })
-                },
+                headlineContent = { Text("Override Do Not Disturb") },
+                supportingContent = { Text(if (state.settings.overrideDnd) "Alert notifications sound even in Do Not Disturb" else "Alert notifications respect Do Not Disturb") },
+                trailingContent = { Switch(checked = state.settings.overrideDnd, onCheckedChange = vm::setOverrideDnd, enabled = notificationsOn) },
             )
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("Poll interval in on-call mode", style = MaterialTheme.typography.labelLarge)
+                Text("Notify for priority", style = MaterialTheme.typography.labelLarge)
+                SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
+                    priorities.forEachIndexed { i, p ->
+                        SegmentedButton(
+                            selected = state.settings.minPriority == p,
+                            onClick = { vm.setMinPriority(p) },
+                            shape = SegmentedButtonDefaults.itemShape(i, priorities.size),
+                            enabled = notificationsOn,
+                        ) { Text(p) }
+                    }
+                }
+                Text(
+                    if (state.settings.minPriority == "P1") "Only P1 alerts trigger a notification"
+                    else "P1 to ${state.settings.minPriority} alerts trigger a notification, lower priorities are only listed",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            HorizontalDivider()
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Fast polling", style = MaterialTheme.typography.labelLarge)
+                SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
+                    pollingModes.forEachIndexed { i, (mode, label) ->
+                        SegmentedButton(
+                            selected = state.settings.pollingMode == mode,
+                            onClick = { if (mode != PollingMode.OFF) ensureNotificationPermission(); vm.setPollingMode(mode) },
+                            shape = SegmentedButtonDefaults.itemShape(i, pollingModes.size),
+                        ) { Text(label) }
+                    }
+                }
+                Text(
+                    (if (state.pollingRunning) "Running: a foreground service checks for alerts every few seconds. " else "Not running. ") +
+                        when (state.settings.pollingMode) {
+                            PollingMode.AUTO -> "Starts and stops with your on-call shifts."
+                            PollingMode.ON -> "Kept running until you turn it off."
+                            PollingMode.OFF -> "Only the 15-minute background sync applies."
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Fast polling interval", style = MaterialTheme.typography.labelLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
                     intervals.forEachIndexed { i, sec ->
                         SegmentedButton(
@@ -101,12 +169,12 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             }
             ListItem(
                 headlineContent = { Text("Background sync") },
-                supportingContent = { Text(if (state.settings.backgroundSync) "Checks for alerts every 15 minutes when on-call mode is off" else "Off. Alerts are only fetched when you open the app or in on-call mode") },
+                supportingContent = { Text(if (state.settings.backgroundSync) "Checks for alerts every 15 minutes when fast polling is not running" else "Off. Alerts are only fetched when you open the app or while fast polling runs") },
                 trailingContent = { Switch(checked = state.settings.backgroundSync, onCheckedChange = vm::setBackgroundSync) },
             )
             ListItem(
                 headlineContent = { Text("Notify when someone else acknowledges") },
-                trailingContent = { Switch(checked = state.settings.notifyOnAck, onCheckedChange = vm::setNotifyOnAck, enabled = state.settings.notificationsEnabled) },
+                trailingContent = { Switch(checked = state.settings.notifyOnAck, onCheckedChange = vm::setNotifyOnAck, enabled = notificationsOn) },
             )
             HorizontalDivider()
 

@@ -22,8 +22,11 @@ What it does:
 2. Install the APK, open the app, enter your site name (`mycompany` for
    `mycompany.atlassian.net`), your Atlassian email and the token, then pick your team.
 3. Allow notifications. In Settings, exempt the app from battery optimisation.
-4. When you are on duty, switch **On-call mode** on: a foreground service polls every 30 s to
-   5 min. Otherwise the app checks every 15 minutes in the background.
+4. By default the app follows your team's on-call schedule: while you are on call it notifies
+   for new alerts (P1 to P3 by default) and runs a fast-polling foreground service; off duty it
+   stays silent, only syncing every 15 minutes, unless an alert is addressed to you personally.
+   Settings let you force notifications **Always** or **Never**, keep fast polling **Always on**
+   or **Off**, choose the priority threshold, and decide whether alerts override Do Not Disturb.
 
 The token is stored in Android Keystore-backed encrypted preferences and only sent to
 `api.atlassian.com` and `<site>.atlassian.net`.

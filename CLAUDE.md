@@ -44,6 +44,16 @@ ui           Compose screens per feature with Hilt ViewModels; AppNav holds bott
 - No push for third-party apps: polling only. `NewAlertNotifier` takes a `SyncResult` so a push
   relay can be added later without touching notification code.
 
+## Notifications and polling
+
+- `sync/NotificationPolicy.kt` is the only place deciding whether an alert notifies and whether
+  fast polling should run; keep it pure and unit-tested.
+- "Am I on call" = `OnCallRepository.amIOnCall()` (live `on-calls` per schedule, 10-minute cache,
+  timeline periods as fallback). `PollingController.evaluate()` starts/stops the foreground
+  service and arms an exact alarm for the next shift boundary.
+- Two "new alert" channels exist because Android freezes a channel's DND bypass after creation:
+  `alerts_new` (bypasses DND) and `alerts_new_quiet`; the Override DND setting picks one.
+
 ## Conventions
 
 - Keep DTO fields nullable with defaults; `Json` is configured with `ignoreUnknownKeys`.

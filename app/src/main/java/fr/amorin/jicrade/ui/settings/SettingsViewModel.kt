@@ -7,12 +7,17 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.amorin.jicrade.data.auth.Session
 import fr.amorin.jicrade.data.auth.SessionHolder
+import fr.amorin.jicrade.data.local.NotificationMode
+import fr.amorin.jicrade.data.local.PollingMode
 import fr.amorin.jicrade.data.local.Settings
 import fr.amorin.jicrade.data.local.SettingsStore
 import fr.amorin.jicrade.data.remote.dto.TeamDto
 import fr.amorin.jicrade.data.remote.toUserMessage
 import fr.amorin.jicrade.data.repo.AuthRepository
+import fr.amorin.jicrade.data.repo.OnCallRepository
+import fr.amorin.jicrade.data.repo.nextShift
 import fr.amorin.jicrade.sync.OnCallPollingService
+import fr.amorin.jicrade.sync.PollingController
 import fr.amorin.jicrade.sync.SyncScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +31,9 @@ import javax.inject.Inject
 data class SettingsState(
     val session: Session? = null,
     val settings: Settings = Settings(),
+    val onCallNow: Boolean = false,
+    val nextShiftStart: Long? = null,
+    val pollingRunning: Boolean = false,
     val teams: List<TeamDto>? = null,
     val error: String? = null,
 )
@@ -35,18 +43,44 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val auth: AuthRepository,
     private val settingsStore: SettingsStore,
+    private val polling: PollingController,
+    onCall: OnCallRepository,
     sessionHolder: SessionHolder,
 ) : ViewModel() {
     private val transient = MutableStateFlow(SettingsState())
 
-    val state: StateFlow<SettingsState> = combine(sessionHolder.session, settingsStore.settings, transient) { s, prefs, t ->
-        t.copy(session = s, settings = prefs)
+    val state: StateFlow<SettingsState> = combine(
+        sessionHolder.session, settingsStore.settings, onCall.onCallNow(), onCall.snapshot(),
+        OnCallPollingService.running, transient,
+    ) { values ->
+        @Suppress("UNCHECKED_CAST")
+        val session = values[0] as Session?
+        val prefs = values[1] as Settings
+        val onCallNow = values[2] as Boolean
+        val snap = values[3] as fr.amorin.jicrade.data.repo.OnCallSnapshot
+        val running = values[4] as Boolean
+        val t = values[5] as SettingsState
+        t.copy(
+            session = session,
+            settings = prefs,
+            onCallNow = onCallNow,
+            nextShiftStart = session?.let { s -> snap.schedules.flatMap { it.periods }.nextShift(s.accountId)?.start },
+            pollingRunning = running,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsState())
 
-    fun setOnCallMode(enabled: Boolean) {
+    fun setNotificationMode(mode: NotificationMode) {
+        viewModelScope.launch { settingsStore.setNotificationMode(mode) }
+    }
+
+    fun setOverrideDnd(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setOverrideDnd(enabled) }
+    }
+
+    fun setPollingMode(mode: PollingMode) {
         viewModelScope.launch {
-            settingsStore.setOnCallMode(enabled)
-            if (enabled) OnCallPollingService.start(context) else OnCallPollingService.stop(context)
+            settingsStore.setPollingMode(mode)
+            polling.evaluate()
         }
     }
 
@@ -54,8 +88,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsStore.setPollInterval(seconds) }
     }
 
-    fun setNotificationsEnabled(enabled: Boolean) {
-        viewModelScope.launch { settingsStore.setNotificationsEnabled(enabled) }
+    fun setMinPriority(priority: String) {
+        viewModelScope.launch { settingsStore.setMinPriority(priority) }
     }
 
     fun setBackgroundSync(enabled: Boolean) {

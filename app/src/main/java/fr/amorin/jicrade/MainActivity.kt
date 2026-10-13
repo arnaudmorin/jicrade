@@ -13,10 +13,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import fr.amorin.jicrade.data.auth.SessionHolder
 import fr.amorin.jicrade.sync.Notifications
+import fr.amorin.jicrade.sync.PollingController
 import fr.amorin.jicrade.ui.AppNav
 import fr.amorin.jicrade.ui.Routes
 import fr.amorin.jicrade.ui.setup.SetupScreen
@@ -26,6 +29,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var sessionHolder: SessionHolder
+    @Inject lateinit var polling: PollingController
 
     private var pendingAlertId by mutableStateOf<String?>(null)
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -39,7 +43,10 @@ class MainActivity : ComponentActivity() {
                 if (session == null) {
                     SetupScreen()
                 } else {
-                    LaunchedEffect(Unit) { requestNotificationPermission() }
+                    LaunchedEffect(Unit) {
+                        requestNotificationPermission()
+                        polling.evaluate()
+                    }
                     Main()
                 }
             }
@@ -49,6 +56,9 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pendingAlertId = intent.getStringExtra(Notifications.EXTRA_ALERT_ID)
+        if (intent.getBooleanExtra(Notifications.EXTRA_EVALUATE_POLLING, false)) {
+            lifecycleScope.launch { polling.evaluate() }
+        }
     }
 
     @Composable

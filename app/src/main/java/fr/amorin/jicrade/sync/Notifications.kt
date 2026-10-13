@@ -20,9 +20,12 @@ import fr.amorin.jicrade.data.local.AlertEntity
 
 object Notifications {
     const val CHANNEL_NEW = "alerts_new"
+    const val CHANNEL_NEW_QUIET = "alerts_new_quiet"
     const val CHANNEL_UPDATE = "alerts_update"
     const val CHANNEL_SERVICE = "oncall_service"
     const val EXTRA_ALERT_ID = "alertId"
+    const val EXTRA_EVALUATE_POLLING = "evaluatePolling"
+    const val SHIFT_STARTED_ID = 2
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService<NotificationManager>() ?: return
@@ -37,6 +40,15 @@ object Notifications {
                 vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
                 setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), alarmAttrs)
                 setBypassDnd(true)
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_NEW_QUIET, "New alerts (respects Do Not Disturb)", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Same as New alerts but silenced by Do Not Disturb"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
+                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), alarmAttrs)
+                setBypassDnd(false)
             }
         )
         nm.createNotificationChannel(
@@ -66,7 +78,7 @@ object Notifications {
         }
     }
 
-    fun showNewAlert(context: Context, alert: AlertEntity) {
+    fun showNewAlert(context: Context, alert: AlertEntity, bypassDnd: Boolean) {
         val open = PendingIntent.getActivity(
             context, notificationId(alert.id),
             Intent(context, MainActivity::class.java).apply {
@@ -75,7 +87,7 @@ object Notifications {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_NEW)
+        val notification = NotificationCompat.Builder(context, if (bypassDnd) CHANNEL_NEW else CHANNEL_NEW_QUIET)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("${alert.priority} · #${alert.tinyId} ${alert.message}")
             .setContentText(listOfNotNull(alert.source, alert.description?.lineSequence()?.firstOrNull()).joinToString(" · "))
@@ -100,6 +112,27 @@ object Notifications {
             .build()
         post(context, notificationId(alert.id), notification)
     }
+
+    fun showShiftStarted(context: Context) {
+        val open = PendingIntent.getActivity(
+            context, SHIFT_STARTED_ID,
+            Intent(context, MainActivity::class.java).apply {
+                putExtra(EXTRA_EVALUATE_POLLING, true)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_UPDATE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Your on-call shift started")
+            .setContentText("Tap to start fast polling (Android blocked starting it in the background)")
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        post(context, SHIFT_STARTED_ID, notification)
+    }
+
+    fun cancelShiftStarted(context: Context) = NotificationManagerCompat.from(context).cancel(SHIFT_STARTED_ID)
 
     fun cancel(context: Context, alertId: String) =
         NotificationManagerCompat.from(context).cancel(notificationId(alertId))

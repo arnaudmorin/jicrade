@@ -24,9 +24,11 @@ class AlertSyncWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val alerts: AlertRepository,
     private val notifier: NewAlertNotifier,
+    private val polling: PollingController,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = try {
         notifier.notify(alerts.sync())
+        polling.evaluate()
         Result.success()
     } catch (e: NotLoggedInException) {
         Result.success()

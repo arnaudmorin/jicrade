@@ -3,9 +3,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:scaleX="2.2" android:scaleY="2.2" android:translateX="27.6" android:translateY="27.6">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.89,2 2,2zM18,16v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32L13.5,4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z" />
+    <group android:scaleX="1.2" android:scaleY="1.2" android:translateX="9.0" android:translateY="10.800000000000004">
+        <group android:translateX="-54">
+            <path android:fillColor="#101214" android:pathData="M93.6206 60.1987C92.1257 61.3003 91.3389 61.2216 89.8439 60.1201C82.6054 54.9272 75.9176 49.0262 71.4329 42.8892C70.9608 42.2597 71.1968 41.3943 71.9049 41.0009L80.0876 35.8867C80.7958 35.4146 81.4252 35.4933 81.976 36.1227C85.1232 39.742 88.1917 43.2826 91.7323 45.8003C95.2729 43.2826 98.3414 39.742 101.489 36.1227C102.039 35.4933 102.669 35.4146 103.377 35.8867L111.56 41.0009C112.268 41.3943 112.504 42.2597 112.032 42.8892C107.547 49.0262 100.859 54.9272 93.6206 60.1987Z" />
+        </group>
+        <group android:translateX="23.5" android:translateY="11" android:scaleX="0.29" android:scaleY="0.29">
+            <path android:fillColor="#101214" android:pathData="M42 24C34 16 42 4 62 3C54 9 60 19 58 24C72 23 80 34 72 45C86 47 92 60 82 68C100 72 104 96 78 96L22 96C-4 96 0 72 18 68C8 60 14 47 28 45C20 34 28 23 42 24Z" />
+        </group>
     </group>
 </vector>

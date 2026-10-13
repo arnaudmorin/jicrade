@@ -1,8 +1,11 @@
 package fr.amorin.jicrade.data.repo
 
 import fr.amorin.jicrade.data.local.OnCallPeriodEntity
+import fr.amorin.jicrade.data.local.ScheduleEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OnCallShiftTest {
@@ -37,5 +40,26 @@ class OnCallShiftTest {
         val t = now + 30 * hour
         assertEquals(now + 28 * hour, periods.currentShift(me, t)?.start)
         assertEquals(now + 52 * hour, periods.nextShift(me, t)?.start)
+    }
+
+    @Test
+    fun nextBoundaryIsStartOfNextShiftWhenOffDuty() {
+        assertEquals(now + 28 * hour, periods.nextBoundary(me, now))
+        assertNull(periods.nextBoundary("nobody", now))
+    }
+
+    @Test
+    fun nextBoundaryIsEndOfCurrentShiftWhenOnDuty() {
+        assertEquals(now + 4 * hour, periods.nextBoundary("bob", now))
+    }
+
+    @Test
+    fun onCallUsesLiveListFirstThenTimeline() {
+        val live = ScheduleEntity("s", "S", "t", null, true, onCallIds = listOf(me), nextOnCallIds = emptyList(), fetchedAt = now)
+        assertTrue(isOnCall(me, listOf(live), emptyList(), now))
+        val liveBob = live.copy(onCallIds = listOf("bob"))
+        assertFalse(isOnCall(me, listOf(liveBob), periods, now))
+        assertTrue(isOnCall(me, listOf(liveBob), periods, now + 30 * hour))
+        assertFalse(isOnCall(me, emptyList(), periods, now))
     }
 }

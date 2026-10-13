@@ -58,6 +58,15 @@ interface ScheduleDao {
     @Query("SELECT * FROM on_call_periods ORDER BY start")
     fun observePeriods(): Flow<List<OnCallPeriodEntity>>
 
+    @Query("SELECT * FROM schedules")
+    suspend fun schedules(): List<ScheduleEntity>
+
+    @Query("SELECT * FROM on_call_periods ORDER BY start")
+    suspend fun periods(): List<OnCallPeriodEntity>
+
+    @Query("UPDATE schedules SET onCallIds = :onCallIdsJson, fetchedAt = :fetchedAt WHERE id = :id")
+    suspend fun updateOnCall(id: String, onCallIdsJson: String, fetchedAt: Long)
+
     @Upsert
     suspend fun upsertSchedules(schedules: List<ScheduleEntity>)
 

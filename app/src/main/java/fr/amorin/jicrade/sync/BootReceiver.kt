@@ -5,18 +5,27 @@ import android.content.Context
 import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
 import fr.amorin.jicrade.data.local.SettingsStore
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class BootReceiver : BroadcastReceiver() {
     @Inject lateinit var settings: SettingsStore
+    @Inject lateinit var polling: PollingController
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        val prefs = runBlocking { settings.settings.first() }
-        SyncScheduler.applyBackgroundSync(context, prefs.backgroundSync)
-        if (prefs.onCallMode) OnCallPollingService.start(context)
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                SyncScheduler.applyBackgroundSync(context, settings.current().backgroundSync)
+                polling.evaluate()
+            } finally {
+                pending.finish()
+            }
+        }
     }
 }

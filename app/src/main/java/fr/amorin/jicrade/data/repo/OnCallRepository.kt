@@ -1,6 +1,7 @@
 package fr.amorin.jicrade.data.repo
 
 import fr.amorin.jicrade.data.auth.SessionHolder
+import fr.amorin.jicrade.data.local.Converters
 import fr.amorin.jicrade.data.local.OnCallPeriodEntity
 import fr.amorin.jicrade.data.local.ScheduleDao
 import fr.amorin.jicrade.data.local.ScheduleEntity
@@ -33,6 +34,7 @@ class OnCallRepository @Inject constructor(
     private val json: Json,
 ) {
     private val cloudId: String get() = sessionHolder.require().cloudId
+    private val converters = Converters()
 
     fun snapshot(): Flow<OnCallSnapshot> = combine(
         scheduleDao.observeSchedules(),
@@ -41,6 +43,34 @@ class OnCallRepository @Inject constructor(
     ) { schedules, periods, names ->
         val byId = periods.groupBy { it.scheduleId }
         OnCallSnapshot(schedules.map { ScheduleOnCall(it, byId[it.id].orEmpty()) }, names)
+    }
+
+    fun onCallNow(): Flow<Boolean> = combine(sessionHolder.session, snapshot()) { session, snap ->
+        session != null && isOnCall(session.accountId, snap.schedules.map { it.schedule }, snap.schedules.flatMap { it.periods })
+    }
+
+    suspend fun amIOnCall(maxAgeMs: Long = 10 * 60_000L): Boolean {
+        val session = sessionHolder.require()
+        val now = System.currentTimeMillis()
+        var schedules = scheduleDao.schedules()
+        if (schedules.isEmpty()) {
+            runCatching { refresh() }
+            schedules = scheduleDao.schedules()
+        }
+        val stale = schedules.filter { now - it.fetchedAt > maxAgeMs }
+        if (stale.isNotEmpty()) {
+            stale.forEach { s ->
+                runCatching { api(json) { opsApi.onCalls(cloudId, s.id).onCallUsers } }
+                    .onSuccess { ids -> scheduleDao.updateOnCall(s.id, converters.stringListToJson(ids), now) }
+            }
+            schedules = scheduleDao.schedules()
+        }
+        return isOnCall(session.accountId, schedules, scheduleDao.periods(), now)
+    }
+
+    suspend fun nextBoundary(now: Long = System.currentTimeMillis()): Long? {
+        val session = sessionHolder.session.value ?: return null
+        return scheduleDao.periods().nextBoundary(session.accountId, now)
     }
 
     suspend fun refresh() {
@@ -97,8 +127,22 @@ class OnCallRepository @Inject constructor(
         }
 }
 
+// The on-calls endpoint reflects live overrides; the timeline is the offline fallback and errs on the side of notifying.
+fun isOnCall(
+    accountId: String,
+    schedules: List<ScheduleEntity>,
+    periods: List<OnCallPeriodEntity>,
+    now: Long = System.currentTimeMillis(),
+): Boolean = schedules.any { accountId in it.onCallIds } || periods.currentShift(accountId, now) != null
+
 fun List<OnCallPeriodEntity>.currentShift(accountId: String, now: Long = System.currentTimeMillis()): OnCallPeriodEntity? =
     firstOrNull { accountId in it.responderIds && it.start <= now && now < it.end }
 
 fun List<OnCallPeriodEntity>.nextShift(accountId: String, now: Long = System.currentTimeMillis()): OnCallPeriodEntity? =
     filter { accountId in it.responderIds && it.start > now }.minByOrNull { it.start }
+
+fun List<OnCallPeriodEntity>.nextBoundary(accountId: String, now: Long = System.currentTimeMillis()): Long? =
+    filter { accountId in it.responderIds }
+        .flatMap { listOf(it.start, it.end) }
+        .filter { it > now }
+        .minOrNull()

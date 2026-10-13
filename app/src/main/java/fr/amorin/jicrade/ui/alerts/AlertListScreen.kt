@@ -66,11 +66,11 @@ fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hilt
                 title = {
                     Column {
                         Text(state.teamName.ifBlank { "Alerts" })
-                        if (state.lastSyncAt > 0 || state.muted) {
+                        if (state.lastSyncAt > 0 || state.status.label != null) {
                             Text(
                                 listOfNotNull(
                                     state.lastSyncAt.takeIf { it > 0 }?.let { "Synced at ${formatTime(it)}" },
-                                    "notifications muted".takeIf { state.muted },
+                                    state.status.label,
                                 ).joinToString(" · "),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
