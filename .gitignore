@@ -11,3 +11,4 @@ captures/
 *.jks
 .DS_Store
 CLAUDE.local.md
+!app/debug.keystore

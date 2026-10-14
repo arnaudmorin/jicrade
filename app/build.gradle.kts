@@ -21,8 +21,20 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = gitCommitCount + 1
-        versionName = "0.1.$gitCommitCount"
+        versionName = providers.environmentVariable("JICRADE_VERSION_NAME")
+            .map { it.removePrefix("v") }
+            .getOrElse("0.1.$gitCommitCount")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            // Committed on purpose so CI and local builds share one key and upgrade each other.
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {

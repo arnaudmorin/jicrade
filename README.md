@@ -53,6 +53,20 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 The version code is derived from the git commit count, so each new commit installs as an update.
 
+## Releases
+
+Every push and pull request is tested and built by GitHub Actions; the APK is attached to the
+run. Pushing a tag starting with `v` publishes a GitHub release with the APK (tags containing a
+`-`, like `v0.2.0-rc1`, are marked as pre-releases):
+
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Releases are debug builds signed with `app/debug.keystore`, which is committed on purpose so
+that every build, local or CI, can upgrade the previous one.
+
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE).
