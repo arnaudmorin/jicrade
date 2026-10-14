@@ -3,8 +3,10 @@ package fr.amorin.jicrade.sync
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.amorin.jicrade.data.auth.SessionHolder
+import fr.amorin.jicrade.data.local.AlertEntity
 import fr.amorin.jicrade.data.local.NotificationMode
 import fr.amorin.jicrade.data.local.SettingsStore
+import fr.amorin.jicrade.data.repo.AlertRepository
 import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.SyncResult
 import javax.inject.Inject
@@ -16,6 +18,7 @@ class NewAlertNotifier @Inject constructor(
     private val settings: SettingsStore,
     private val onCallRepository: OnCallRepository,
     private val sessionHolder: SessionHolder,
+    private val alerts: AlertRepository,
 ) {
     suspend fun notify(result: SyncResult) {
         val prefs = settings.current()
@@ -27,10 +30,16 @@ class NewAlertNotifier @Inject constructor(
         val onCall = prefs.notificationMode == NotificationMode.ON_CALL && candidates.isNotEmpty() &&
             runCatching { onCallRepository.amIOnCall() }.getOrDefault(false)
         NotificationPolicy.select(candidates, prefs, onCall, accountId)
+            .map { withDetails(it) }
             .forEach { Notifications.showNewAlert(context, it, bypassDnd = prefs.overrideDnd) }
 
         if (prefs.notifyOnAck) {
             result.resolved.filter { it.isAcked }.forEach { Notifications.showAcked(context, it) }
         }
     }
+
+    // The list endpoint omits description/details for some alerts; the detail endpoint has them.
+    private suspend fun withDetails(alert: AlertEntity): AlertEntity =
+        if (alert.description != null || alert.extraProperties.isNotEmpty()) alert
+        else runCatching { alerts.fetchOne(alert.id) }.getOrDefault(alert)
 }

@@ -79,6 +79,9 @@ object Notifications {
     }
 
     fun showNewAlert(context: Context, alert: AlertEntity, bypassDnd: Boolean) {
+        val meta = listOfNotNull(alert.priority, "#${alert.tinyId}", alert.source).joinToString(" · ")
+        val body = alert.description?.takeIf { it.isNotBlank() }
+            ?: alert.extraProperties.entries.take(8).joinToString("\n") { "${it.key}: ${it.value}" }.ifBlank { null }
         val open = PendingIntent.getActivity(
             context, notificationId(alert.id),
             Intent(context, MainActivity::class.java).apply {
@@ -90,12 +93,8 @@ object Notifications {
         val notification = NotificationCompat.Builder(context, if (bypassDnd) CHANNEL_NEW else CHANNEL_NEW_QUIET)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(alert.message.ifBlank { alert.entity ?: alert.alias ?: "Alert #${alert.tinyId}" })
-            .setContentText(listOfNotNull(alert.priority, "#${alert.tinyId}", alert.source).joinToString(" · "))
-            .setStyle(
-                NotificationCompat.BigTextStyle()
-                    .bigText(listOfNotNull(alert.message, alert.description).joinToString("\n\n"))
-                    .setSummaryText(listOfNotNull(alert.priority, "#${alert.tinyId}", alert.source).joinToString(" · "))
-            )
+            .setContentText(meta)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body ?: meta).setSummaryText(if (body != null) meta else null))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(open)
