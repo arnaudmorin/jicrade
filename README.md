@@ -1,76 +1,61 @@
+<p align="center"><img src="docs/logo.png" width="120" alt="Jicrade logo"></p>
+
 # Jicrade
 
-> **Warning: development build.** This app is an early work in progress intended for
-> development and personal testing only. Expect bugs, missing features and breaking changes.
-> Do not rely on it as your only on-call alerting channel.
+An Android app to receive and handle **Jira Service Management Operations** alerts, for teams
+whose Opsgenie mobile app went away with the Opsgenie retirement.
 
-A small Android app that replaces the retired Opsgenie mobile app for teams moved to
-**Jira Service Management Operations**. It talks directly to the JSM Operations REST API
-(the rehosted Opsgenie API) with your own Atlassian API token.
+> **Development build.** This is an early, personal project. Expect bugs and breaking changes,
+> and do not rely on it as your only on-call alerting channel.
 
-What it does:
+<p align="center">
+  <img src="docs/screenshots/alerts.jpg" width="280" alt="Alert list">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/settings.jpg" width="280" alt="Settings">
+</p>
 
-- lists your team's alerts (open / acked / closed) with detail, notes and activity log
-- acknowledge, unacknowledge, close, snooze, add notes
-- notifies you of new alerts, with Acknowledge / Close buttons on the notification
-- shows who is on call now and next for every schedule of your team, your next shift,
-  and the upcoming rotations
+## Features
 
-## Setup on the phone
+- Your team's alerts in Open, Acked and Closed tabs, with details, notes and activity log.
+- Acknowledge, unacknowledge, close, snooze and add notes, from the app or the notification.
+- Who is on call now and next for each of your team's schedules, and when your next shift is.
+- Notifications that follow your on-call schedule: loud while you are on call, silent otherwise,
+  unless an alert is addressed to you. Can be forced to Always or Never.
+- Priority threshold (P3 and above by default) and an optional Do Not Disturb override.
 
-1. Create an API token at <https://id.atlassian.com/manage-profile/security/api-tokens>.
-2. Install the APK, open the app, enter your site name (`mycompany` for
-   `mycompany.atlassian.net`), your Atlassian email and the token, then pick your team.
-3. Allow notifications. In Settings, exempt the app from battery optimisation.
-4. By default the app follows your team's on-call schedule: while you are on call it notifies
-   for new alerts (P1 to P3 by default) and runs a fast-polling foreground service; off duty it
-   stays silent, only syncing every 15 minutes, unless an alert is addressed to you personally.
-   Settings let you force notifications **Always** or **Never**, keep fast polling **Always on**
-   or **Off**, choose the priority threshold, and decide whether alerts override Do Not Disturb.
+## Getting started
 
-The token is stored in Android Keystore-backed encrypted preferences and only sent to
-`api.atlassian.com` and `<site>.atlassian.net`.
+1. Create an Atlassian API token at <https://id.atlassian.com/manage-profile/security/api-tokens>.
+2. Build and install the app (see below), then sign in with your site name (`mycompany` for
+   `mycompany.atlassian.net`), your Atlassian email and the token, and pick your team.
+3. Allow notifications, and in Settings exempt the app from battery optimisation so polling
+   keeps running with the screen off.
 
-## How alerts reach the phone
+The token is stored encrypted on the device and only sent to `api.atlassian.com` and your
+`atlassian.net` site.
 
-The Operations API has no push channel for third-party apps, so the app polls. New alerts
-discovered by a poll are turned into high-priority notifications (alarm sound, bypasses
-Do Not Disturb, full-screen for P1). A future version could replace polling by the JSM
-outgoing Webhook integration feeding a relay that pushes to the phone; the notifier is
-independent of how alerts are discovered.
+## How it works
 
-## API reference
-
-- Intro: <https://developer.atlassian.com/cloud/jira/service-desk-ops/rest/v2/intro/>
-- OpenAPI spec: `docs/jsm-ops-openapi.json` (copy of
-  <https://dac-static.atlassian.com/cloud/jira/service-desk-ops/swagger.v3.json>)
-- Base URL: `https://api.atlassian.com/jsm/ops/api/{cloudId}/v1/`, Basic auth `email:token`
-- cloudId: `https://<site>.atlassian.net/_edge/tenant_info`
-- Account id and display names: Jira platform `/rest/api/3/myself` and `/rest/api/3/user/bulk`
-- Alert search syntax: <https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/>
+The app uses the [JSM Operations REST API](https://developer.atlassian.com/cloud/jira/service-desk-ops/rest/v2/intro/)
+directly, with Basic authentication. That API has no push channel for third-party apps, so the
+app polls: every 15 minutes in the background, and every 30 seconds to 5 minutes while you are
+on call, through a foreground service that starts and stops with your shifts.
 
 ## Building
 
-Requires JDK 17+ and the Android SDK (platform 35, build-tools 35). Point `local.properties`
-at the SDK (`sdk.dir=/path/to/Android/Sdk`).
+Requires JDK 17 or later and the Android SDK with platform 35.
 
 ```sh
+echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 ./gradlew test assembleDebug
-adb install app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Layout
-
-```
-app/src/main/java/fr/amorin/jicrade/
-  data/auth      credentials (encrypted prefs) and session
-  data/remote    Retrofit APIs, DTOs, auth / retry interceptors
-  data/local     Room entities and DAOs, DataStore settings
-  data/repo      alert, on-call, user and auth repositories
-  sync           WorkManager sync, on-call foreground service, notifications
-  ui             Compose screens: setup, alerts, alert detail, on-call, settings
-```
+The version code is derived from the git commit count, so each new commit installs as an update.
 
 ## License
 
-Copyright 2026 Arnaud Morin. Licensed under the Apache License, Version 2.0; see `LICENSE`.
+Apache License 2.0, see [LICENSE](LICENSE).
+
+Not affiliated with or endorsed by Atlassian. Jira Service Management and Opsgenie are
+trademarks of Atlassian.

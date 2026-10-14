@@ -7,17 +7,15 @@ Opsgenie mobile app on top of the Jira Service Management Operations REST API. S
 ## Build and test
 
 ```sh
-export JAVA_HOME=$HOME/apps/jdk21        # JDK with javac; system JRE has none
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-- Android SDK lives in `~/Android/Sdk` (see `local.properties`, not committed).
-- `/tmp` is noexec on this machine; `~/.gradle/gradle.properties` redirects JVM temp dirs so
-  Room's KSP query verifier works. Do not move that into the repo.
 - Lint must report 0 errors; warnings about newer dependency versions are expected.
 - `versionCode` = git commit count + 1, so commit before building an APK meant to install
   over a previous one.
+- Machine-specific setup (JDK and SDK paths, temp dir workarounds) belongs in `CLAUDE.local.md`,
+  which is not committed.
 
 ## Layout
 
