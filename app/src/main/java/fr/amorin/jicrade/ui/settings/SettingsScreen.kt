@@ -18,9 +18,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -85,7 +88,13 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             ListItem(
                 headlineContent = { Text("Team") },
                 supportingContent = { Text(s?.teamName ?: "") },
-                trailingContent = { TextButton(onClick = vm::loadTeams) { Text("Change") } },
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.NavigateNext,
+                        contentDescription = "Change team",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
                 modifier = Modifier.clickable { vm.loadTeams() },
             )
             HorizontalDivider()

@@ -11,7 +11,7 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 - Changement de vue (ouvertes, acquittées, fermées) par balayage horizontal (swipe) dans la liste des alertes.
 
 ### Modifié
-- Dialogue de sélection d'équipe dans les paramètres repensé avec boutons radio Material 3 et validation par bouton OK.
+- Dialogue de sélection d'équipe dans les paramètres repensé avec boutons radio Material 3, affichage élargi et chevron de navigation à la place du bouton texte "Change".
 
 ### Corrigé
 - Suppression du double espacement vertical sous la barre d'état en haut des écrans.
