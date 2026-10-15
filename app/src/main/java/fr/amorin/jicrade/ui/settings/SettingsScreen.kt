@@ -246,12 +246,19 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 },
             )
             HorizontalDivider()
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("About", style = MaterialTheme.typography.labelLarge)
+            }
+            ListItem(
+                headlineContent = { Text("Version") },
+                supportingContent = { Text("Jicrade ${BuildConfig.VERSION_NAME}") },
+            )
+            HorizontalDivider()
             ListItem(
                 headlineContent = { Text("Log out", color = MaterialTheme.colorScheme.error) },
                 supportingContent = { Text("Removes the stored token and cached data") },
                 modifier = Modifier.clickable { confirmLogout = true },
             )
-            ListItem(headlineContent = { Text("Jicrade ${BuildConfig.VERSION_NAME}") })
         }
     }
 
