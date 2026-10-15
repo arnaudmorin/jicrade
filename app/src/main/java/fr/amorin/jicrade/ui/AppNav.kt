@@ -1,5 +1,6 @@
 package fr.amorin.jicrade.ui
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
@@ -47,6 +48,7 @@ fun AppNav(navController: NavHostController) {
     val current = backStack?.destination?.route
     val showBar = tabs.any { it.route == current }
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBar) {
                 NavigationBar {

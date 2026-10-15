@@ -10,6 +10,9 @@ et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
 ### Ajouté
 - Changement de vue (ouvertes, acquittées, fermées) par balayage horizontal (swipe) dans la liste des alertes.
 
+### Corrigé
+- Suppression du double espacement vertical sous la barre d'état en haut des écrans.
+
 ## [0.1.0] - 2026-10-15
 ### Ajouté
 - Version initiale de l'application mobile Jicrade pour Jira Service Management Operations.
