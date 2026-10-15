@@ -1,25 +1,30 @@
 # Changelog
 
-Toutes les modifications notables de ce projet seront documentées dans ce fichier.
+All notable changes to this project are documented in this file.
 
-Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
-et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Non publié
+## [0.2.0] - 2026-10-15
 
-### Ajouté
-- Changement de vue (ouvertes, acquittées, fermées) par balayage horizontal (swipe) dans la liste des alertes.
+### Added
+- Swipe horizontally between alert views (open, acknowledged, closed) in the alert list.
 
-### Modifié
-- Dialogue de sélection d'équipe dans les paramètres repensé avec boutons radio Material 3, affichage élargi et chevron de navigation à la place du bouton texte "Change".
-- Masquage automatique des sections d'autorisation de notifications et d'optimisation de batterie dans les paramètres lorsqu'elles sont déjà accordées.
-- Affichage de la version de l'application sous l'option de déconnexion dans les paramètres.
+### Changed
+- Team picker in settings uses Material 3 radio buttons in a wider dialog, opened from a
+  navigation chevron instead of a "Change" text button.
+- Notification permission and battery optimisation entries in settings are hidden once granted.
+- App version is shown below the logout entry in settings.
 
-### Corrigé
-- Suppression du double espacement vertical sous la barre d'état en haut des écrans.
+### Fixed
+- Double status bar padding at the top of screens.
 
-## [0.1.0] - 2026-10-15
-### Ajouté
-- Version initiale de l'application mobile Jicrade pour Jira Service Management Operations.
-- Consultation et gestion des alertes d'astreinte (acquittement, fermeture, détails).
-- Notifications en cas de nouvelle alerte et suivi de garde d'astreinte.
+## [0.1.0] - 2026-10-14
+
+### Added
+- Initial release of Jicrade, a mobile client for Jira Service Management Operations.
+- Browse and manage on-call alerts (acknowledge, close, details).
+- Notifications for new alerts and on-call shift tracking.
+
+[0.2.0]: https://github.com/arnaudmorin/jicrade/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/arnaudmorin/jicrade/releases/tag/v0.1.0
