@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Cancel
-import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,10 +34,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -48,12 +48,14 @@ import fr.amorin.jicrade.ui.common.EmptyState
 import fr.amorin.jicrade.ui.common.PriorityChip
 import fr.amorin.jicrade.ui.common.formatTime
 import fr.amorin.jicrade.ui.common.relativeAge
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableStateOf(AlertTab.OPEN) }
+    val pagerState = rememberPagerState(initialPage = AlertTab.OPEN.ordinal, pageCount = { AlertTab.entries.size })
+    val coroutineScope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.error) {
@@ -83,33 +85,43 @@ fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hilt
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            TabRow(selectedTabIndex = tab.ordinal) {
-                AlertTab.entries.forEach { t ->
+            TabRow(selectedTabIndex = pagerState.currentPage) {
+                AlertTab.entries.forEachIndexed { index, t ->
                     Tab(
-                        selected = tab == t,
-                        onClick = { tab = t },
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
                         text = { Text("${t.label} (${state.forTab(t).size})") },
                     )
                 }
             }
             PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
-                val list = state.forTab(tab)
-                if (list.isEmpty()) {
-                    EmptyState(
-                        title = if (tab == AlertTab.OPEN) "No open alerts" else "Nothing here",
-                        subtitle = "Pull down to refresh",
-                    )
-                } else {
-                    LazyColumn(Modifier.fillMaxSize()) {
-                        items(list, key = { it.id }) { alert ->
-                            AlertRow(
-                                alert = alert,
-                                onClick = { onOpenAlert(alert.id) },
-                                onAck = { vm.acknowledge(alert.id) },
-                                onUnack = { vm.unacknowledge(alert.id) },
-                                onClose = { vm.close(alert.id) },
-                            )
-                            HorizontalDivider()
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    val tab = AlertTab.entries[page]
+                    val list = state.forTab(tab)
+                    if (list.isEmpty()) {
+                        EmptyState(
+                            title = if (tab == AlertTab.OPEN) "No open alerts" else "Nothing here",
+                            subtitle = "Pull down to refresh",
+                        )
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize()) {
+                            items(list, key = { it.id }) { alert ->
+                                AlertRow(
+                                    alert = alert,
+                                    onClick = { onOpenAlert(alert.id) },
+                                    onAck = { vm.acknowledge(alert.id) },
+                                    onUnack = { vm.unacknowledge(alert.id) },
+                                    onClose = { vm.close(alert.id) },
+                                )
+                                HorizontalDivider()
+                            }
                         }
                     }
                 }
