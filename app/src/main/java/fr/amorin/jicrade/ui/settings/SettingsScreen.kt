@@ -9,15 +9,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -34,8 +40,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
@@ -77,6 +85,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 headlineContent = { Text("Team") },
                 supportingContent = { Text(s?.teamName ?: "") },
                 trailingContent = { TextButton(onClick = vm::loadTeams) { Text("Change") } },
+                modifier = Modifier.clickable { vm.loadTeams() },
             )
             HorizontalDivider()
 
@@ -229,17 +238,63 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     }
 
     state.teams?.let { teams ->
+        var selectedTeam by remember(teams) {
+            mutableStateOf(teams.firstOrNull { it.teamId == state.session?.teamId } ?: teams.firstOrNull())
+        }
         AlertDialog(
             onDismissRequest = vm::dismissTeams,
             title = { Text("Choose team") },
             text = {
-                Column {
-                    teams.forEach { t ->
-                        ListItem(headlineContent = { Text(t.teamName) }, modifier = Modifier.clickable { vm.switchTeam(t) })
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    teams.forEach { team ->
+                        val isSelected = team.teamId == selectedTeam?.teamId
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = isSelected,
+                                    onClick = { selectedTeam = team },
+                                    role = Role.RadioButton,
+                                )
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = null,
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = team.teamName,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = vm::dismissTeams) { Text("Cancel") } },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val team = selectedTeam
+                        if (team != null && team.teamId != state.session?.teamId) {
+                            vm.switchTeam(team)
+                        } else {
+                            vm.dismissTeams()
+                        }
+                    },
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = vm::dismissTeams) {
+                    Text("Cancel")
+                }
+            },
         )
     }
 }
