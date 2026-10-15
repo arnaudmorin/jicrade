@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.getSystemService
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.amorin.jicrade.BuildConfig
 import fr.amorin.jicrade.data.local.NotificationMode
@@ -73,9 +75,24 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     var confirmLogout by remember { mutableStateOf(false) }
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it); vm.clearError() } }
 
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    var hasNotificationPermission by remember { mutableStateOf(Notifications.canPost(context)) }
+    val pm = remember { context.getSystemService<PowerManager>() }
+    var ignoringBattery by remember { mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true) }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        hasNotificationPermission = Notifications.canPost(context)
+        ignoringBattery = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+    }
+
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasNotificationPermission = granted || Notifications.canPost(context)
+    }
     fun ensureNotificationPermission() {
-        if (!Notifications.canPost(context)) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!Notifications.canPost(context)) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            hasNotificationPermission = true
+        }
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
@@ -198,25 +215,25 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             )
             HorizontalDivider()
 
-            ListItem(
-                headlineContent = { Text("Notification permission") },
-                supportingContent = { Text("Required to be alerted") },
-                modifier = Modifier.clickable { ensureNotificationPermission() },
-            )
-            val pm = context.getSystemService<PowerManager>()
-            val ignoring = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
-            ListItem(
-                headlineContent = { Text("Battery optimisation") },
-                supportingContent = { Text(if (ignoring) "Unrestricted, background polling is reliable" else "Tap to exempt the app so polling keeps running") },
-                modifier = Modifier.clickable {
-                    if (!ignoring) {
+            if (!hasNotificationPermission) {
+                ListItem(
+                    headlineContent = { Text("Notification permission", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Required to be alerted") },
+                    modifier = Modifier.clickable { ensureNotificationPermission() },
+                )
+            }
+            if (!ignoringBattery) {
+                ListItem(
+                    headlineContent = { Text("Battery optimisation") },
+                    supportingContent = { Text("Tap to exempt the app so polling keeps running") },
+                    modifier = Modifier.clickable {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
-                    }
-                },
-            )
+                    },
+                )
+            }
             ListItem(
                 headlineContent = { Text("Notification channels") },
                 supportingContent = { Text("Change sound, vibration and Do-Not-Disturb override") },
