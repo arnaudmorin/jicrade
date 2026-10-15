@@ -9,15 +9,24 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -34,12 +43,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.getSystemService
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.amorin.jicrade.BuildConfig
 import fr.amorin.jicrade.data.local.NotificationMode
@@ -61,9 +75,24 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     var confirmLogout by remember { mutableStateOf(false) }
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it); vm.clearError() } }
 
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    var hasNotificationPermission by remember { mutableStateOf(Notifications.canPost(context)) }
+    val pm = remember { context.getSystemService<PowerManager>() }
+    var ignoringBattery by remember { mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true) }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        hasNotificationPermission = Notifications.canPost(context)
+        ignoringBattery = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+    }
+
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasNotificationPermission = granted || Notifications.canPost(context)
+    }
     fun ensureNotificationPermission() {
-        if (!Notifications.canPost(context)) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!Notifications.canPost(context)) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            hasNotificationPermission = true
+        }
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
@@ -76,7 +105,14 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             ListItem(
                 headlineContent = { Text("Team") },
                 supportingContent = { Text(s?.teamName ?: "") },
-                trailingContent = { TextButton(onClick = vm::loadTeams) { Text("Change") } },
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.NavigateNext,
+                        contentDescription = "Change team",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                modifier = Modifier.clickable { vm.loadTeams() },
             )
             HorizontalDivider()
 
@@ -179,25 +215,25 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             )
             HorizontalDivider()
 
-            ListItem(
-                headlineContent = { Text("Notification permission") },
-                supportingContent = { Text("Required to be alerted") },
-                modifier = Modifier.clickable { ensureNotificationPermission() },
-            )
-            val pm = context.getSystemService<PowerManager>()
-            val ignoring = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
-            ListItem(
-                headlineContent = { Text("Battery optimisation") },
-                supportingContent = { Text(if (ignoring) "Unrestricted, background polling is reliable" else "Tap to exempt the app so polling keeps running") },
-                modifier = Modifier.clickable {
-                    if (!ignoring) {
+            if (!hasNotificationPermission) {
+                ListItem(
+                    headlineContent = { Text("Notification permission", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Required to be alerted") },
+                    modifier = Modifier.clickable { ensureNotificationPermission() },
+                )
+            }
+            if (!ignoringBattery) {
+                ListItem(
+                    headlineContent = { Text("Battery optimisation") },
+                    supportingContent = { Text("Tap to exempt the app so polling keeps running") },
+                    modifier = Modifier.clickable {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
-                    }
-                },
-            )
+                    },
+                )
+            }
             ListItem(
                 headlineContent = { Text("Notification channels") },
                 supportingContent = { Text("Change sound, vibration and Do-Not-Disturb override") },
@@ -215,7 +251,11 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 supportingContent = { Text("Removes the stored token and cached data") },
                 modifier = Modifier.clickable { confirmLogout = true },
             )
-            ListItem(headlineContent = { Text("Jicrade ${BuildConfig.VERSION_NAME}") })
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Version") },
+                supportingContent = { Text("Jicrade ${BuildConfig.VERSION_NAME}") },
+            )
         }
     }
 
@@ -229,17 +269,67 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     }
 
     state.teams?.let { teams ->
+        var selectedTeam by remember(teams) {
+            mutableStateOf(teams.firstOrNull { it.teamId == state.session?.teamId } ?: teams.firstOrNull())
+        }
         AlertDialog(
             onDismissRequest = vm::dismissTeams,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
             title = { Text("Choose team") },
             text = {
-                Column {
-                    teams.forEach { t ->
-                        ListItem(headlineContent = { Text(t.teamName) }, modifier = Modifier.clickable { vm.switchTeam(t) })
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    teams.forEach { team ->
+                        val isSelected = team.teamId == selectedTeam?.teamId
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = isSelected,
+                                    onClick = { selectedTeam = team },
+                                    role = Role.RadioButton,
+                                )
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = null,
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = team.teamName,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = vm::dismissTeams) { Text("Cancel") } },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val team = selectedTeam
+                        if (team != null && team.teamId != state.session?.teamId) {
+                            vm.switchTeam(team)
+                        } else {
+                            vm.dismissTeams()
+                        }
+                    },
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = vm::dismissTeams) {
+                    Text("Cancel")
+                }
+            },
         )
     }
 }
