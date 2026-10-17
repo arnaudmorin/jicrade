@@ -25,7 +25,10 @@ class JicradeApp : Application(), Configuration.Provider {
         super.onCreate()
         Notifications.createChannels(this)
         CoroutineScope(Dispatchers.IO).launch {
-            SyncScheduler.applyBackgroundSync(this@JicradeApp, settings.settings.first().backgroundSync)
+            val s = settings.settings.first()
+            val uri = s.alertSoundUri?.let { android.net.Uri.parse(it) }
+            Notifications.ensureAlertChannels(this@JicradeApp, uri)
+            SyncScheduler.applyBackgroundSync(this@JicradeApp, s.backgroundSync)
         }
     }
 }

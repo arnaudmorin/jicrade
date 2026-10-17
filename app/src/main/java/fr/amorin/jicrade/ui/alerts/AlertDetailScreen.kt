@@ -48,6 +48,7 @@ import fr.amorin.jicrade.data.local.AlertEntity
 import fr.amorin.jicrade.data.repo.parseInstant
 import fr.amorin.jicrade.ui.common.PriorityChip
 import fr.amorin.jicrade.ui.common.formatDateTimeYear
+import fr.amorin.jicrade.ui.common.stripEmailDomain
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +85,7 @@ fun AlertDetailScreen(onBack: () -> Unit, vm: AlertDetailViewModel = hiltViewMod
                         alert.ackTime?.let { DetailLine("Acknowledged", formatDateTimeYear(it)) }
                         alert.closeTime?.let { DetailLine("Closed", formatDateTimeYear(it)) }
                         alert.snoozedUntil?.let { DetailLine("Snoozed until", formatDateTimeYear(it)) }
-                        alert.owner?.let { DetailLine("Owner", it) }
+                        alert.owner?.let { DetailLine("Owner", it.stripEmailDomain()) }
                         alert.source?.let { DetailLine("Source", it) }
                         alert.entity?.let { DetailLine("Entity", it) }
                         alert.integrationName?.let { DetailLine("Integration", it) }
@@ -93,7 +94,7 @@ fun AlertDetailScreen(onBack: () -> Unit, vm: AlertDetailViewModel = hiltViewMod
                         if (alert.tags.isNotEmpty()) DetailLine("Tags", alert.tags.joinToString(", "))
                         if (alert.responders.isNotEmpty()) {
                             DetailLine("Responders", alert.responders.joinToString { r ->
-                                if (r.type == "user") state.names[r.id] ?: r.id.takeLast(6) else "${r.type}:${r.id.take(8)}"
+                                if (r.type == "user") (state.names[r.id] ?: r.id.takeLast(6)).stripEmailDomain() else "${r.type}:${r.id.take(8)}"
                             })
                         }
                     }
@@ -111,8 +112,8 @@ fun AlertDetailScreen(onBack: () -> Unit, vm: AlertDetailViewModel = hiltViewMod
                         Section("Activity") {
                             state.logs.forEach { log ->
                                 val t = parseInstant(log.logTime)?.let { formatDateTimeYear(it) } ?: ""
-                                Text("$t · ${log.owner.orEmpty()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(log.log.orEmpty(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
+                                Text("$t · ${log.owner.orEmpty().stripEmailDomain()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(log.log.orEmpty().stripEmailDomain(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
                             }
                         }
                     }
@@ -175,7 +176,7 @@ private fun NotesSection(state: AlertDetailState, vm: AlertDetailViewModel) {
     Section("Notes") {
         state.notes.forEach { note ->
             val t = parseInstant(note.createdAt)?.let { formatDateTimeYear(it) } ?: ""
-            Text("${note.owner.orEmpty()} · $t", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${note.owner.orEmpty().stripEmailDomain()} · $t", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(note.note.orEmpty(), style = MaterialTheme.typography.bodyMedium)
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
         }

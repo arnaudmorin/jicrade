@@ -18,39 +18,82 @@ import fr.amorin.jicrade.MainActivity
 import fr.amorin.jicrade.R
 import fr.amorin.jicrade.data.local.AlertEntity
 
+import android.media.AudioManager
+import android.net.Uri
+import kotlin.math.roundToInt
+
 object Notifications {
-    const val CHANNEL_NEW = "alerts_new"
-    const val CHANNEL_NEW_QUIET = "alerts_new_quiet"
+    const val CHANNEL_NEW_BASE = "alerts_new_v2"
+    const val CHANNEL_NEW_QUIET_BASE = "alerts_new_quiet_v2"
     const val CHANNEL_UPDATE = "alerts_update"
     const val CHANNEL_SERVICE = "oncall_service"
     const val EXTRA_ALERT_ID = "alertId"
     const val EXTRA_EVALUATE_POLLING = "evaluatePolling"
     const val SHIFT_STARTED_ID = 2
 
-    fun createChannels(context: Context) {
+    fun alertChannelId(soundUri: Uri?, bypassDnd: Boolean): String {
+        val base = if (bypassDnd) CHANNEL_NEW_BASE else CHANNEL_NEW_QUIET_BASE
+        val suffix = soundUri?.toString()?.hashCode()?.let { "_$it" } ?: ""
+        return "$base$suffix"
+    }
+
+    fun ringtoneTitle(context: Context, uriString: String?): String {
+        if (uriString.isNullOrBlank()) {
+            val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            return runCatching {
+                RingtoneManager.getRingtone(context, defaultUri)?.getTitle(context)
+            }.getOrNull() ?: "Default alarm"
+        }
+        return runCatching {
+            val uri = Uri.parse(uriString)
+            RingtoneManager.getRingtone(context, uri)?.getTitle(context)
+        }.getOrNull() ?: "Custom sound"
+    }
+
+    fun ensureAlertChannels(context: Context, soundUri: Uri? = null) {
         val nm = context.getSystemService<NotificationManager>() ?: return
+        runCatching {
+            nm.deleteNotificationChannel("alerts_new")
+            nm.deleteNotificationChannel("alerts_new_quiet")
+        }
+
+        val sound = soundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         val alarmAttrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+            .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_NEW, "New alerts", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "A new alert was raised for your team"
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
-                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), alarmAttrs)
-                setBypassDnd(true)
-            }
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_NEW_QUIET, "New alerts (respects Do Not Disturb)", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Same as New alerts but silenced by Do Not Disturb"
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
-                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), alarmAttrs)
-                setBypassDnd(false)
-            }
-        )
+
+        val channelDnd = NotificationChannel(
+            alertChannelId(soundUri, bypassDnd = true),
+            "New alerts",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = "New incident alerts for your team"
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
+            setSound(sound, alarmAttrs)
+            setBypassDnd(true)
+        }
+
+        val channelQuiet = NotificationChannel(
+            alertChannelId(soundUri, bypassDnd = false),
+            "New alerts (respects Do Not Disturb)",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = "New incident alerts for your team (silenced by Do Not Disturb)"
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
+            setSound(sound, alarmAttrs)
+            setBypassDnd(false)
+        }
+
+        nm.createNotificationChannel(channelDnd)
+        nm.createNotificationChannel(channelQuiet)
+    }
+
+    fun createChannels(context: Context, soundUri: Uri? = null) {
+        val nm = context.getSystemService<NotificationManager>() ?: return
+        ensureAlertChannels(context, soundUri)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_UPDATE, "Alert updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Alerts acknowledged by someone else"
@@ -78,7 +121,27 @@ object Notifications {
         }
     }
 
-    fun showNewAlert(context: Context, alert: AlertEntity, bypassDnd: Boolean) {
+    fun showNewAlert(
+        context: Context,
+        alert: AlertEntity,
+        bypassDnd: Boolean,
+        soundUri: Uri? = null,
+        loop: Boolean = true,
+        overrideVolume: Boolean = false,
+        alertVolume: Int = 100,
+    ) {
+        ensureAlertChannels(context, soundUri)
+        val channelId = alertChannelId(soundUri, bypassDnd)
+
+        if (overrideVolume) {
+            val audioManager = context.getSystemService<AudioManager>()
+            if (audioManager != null) {
+                val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                val target = (max * (alertVolume.coerceIn(10, 100) / 100f)).roundToInt().coerceIn(1, max)
+                runCatching { audioManager.setStreamVolume(AudioManager.STREAM_ALARM, target, 0) }
+            }
+        }
+
         val meta = listOfNotNull(alert.priority, "#${alert.tinyId}", alert.source).joinToString(" · ")
         val body = alert.description?.takeIf { it.isNotBlank() }
             ?: alert.extraProperties.entries.take(8).joinToString("\n") { "${it.key}: ${it.value}" }.ifBlank { null }
@@ -90,7 +153,7 @@ object Notifications {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, if (bypassDnd) CHANNEL_NEW else CHANNEL_NEW_QUIET)
+        val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(alert.message.ifBlank { alert.entity ?: alert.alias ?: "Alert #${alert.tinyId}" })
             .setContentText(meta)
@@ -103,6 +166,11 @@ object Notifications {
             .addAction(0, "Acknowledge", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_ACK, alert.id))
             .addAction(0, "Close", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_CLOSE, alert.id))
             .build()
+
+        if (loop) {
+            notification.flags = notification.flags or android.app.Notification.FLAG_INSISTENT
+        }
+
         post(context, notificationId(alert.id), notification)
     }
 

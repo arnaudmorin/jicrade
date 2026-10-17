@@ -16,6 +16,7 @@ import fr.amorin.jicrade.data.remote.toUserMessage
 import fr.amorin.jicrade.data.repo.AuthRepository
 import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.nextShift
+import fr.amorin.jicrade.sync.Notifications
 import fr.amorin.jicrade.sync.OnCallPollingService
 import fr.amorin.jicrade.sync.PollingController
 import fr.amorin.jicrade.sync.SyncScheduler
@@ -27,6 +28,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class RingtoneOption(val uri: String?, val title: String)
 
 data class SettingsState(
     val session: Session? = null,
@@ -101,6 +104,123 @@ class SettingsViewModel @Inject constructor(
 
     fun setNotifyOnAck(enabled: Boolean) {
         viewModelScope.launch { settingsStore.setNotifyOnAck(enabled) }
+    }
+
+    val isPlayingPreview = MutableStateFlow(false)
+    val ringtones = MutableStateFlow<List<RingtoneOption>?>(null)
+    private var previewRingtone: android.media.Ringtone? = null
+
+    fun loadRingtones() {
+        if (ringtones.value != null) return
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val list = mutableListOf<RingtoneOption>()
+            val defaultUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+            val defaultTitle = runCatching { android.media.RingtoneManager.getRingtone(context, defaultUri)?.getTitle(context) }.getOrNull() ?: "Default alarm"
+            list.add(RingtoneOption(uri = null, title = "Default alarm ($defaultTitle)"))
+
+            val manager = android.media.RingtoneManager(context).apply {
+                setType(android.media.RingtoneManager.TYPE_ALARM or android.media.RingtoneManager.TYPE_NOTIFICATION or android.media.RingtoneManager.TYPE_RINGTONE)
+            }
+            runCatching {
+                val cursor = manager.cursor
+                while (cursor.moveToNext()) {
+                    val title = cursor.getString(android.media.RingtoneManager.TITLE_COLUMN_INDEX)
+                    val uri = manager.getRingtoneUri(cursor.position)
+                    if (title != null && uri != null) {
+                        list.add(RingtoneOption(uri = uri.toString(), title = title))
+                    }
+                }
+            }
+            val distinct = list.distinctBy { it.title }
+            ringtones.value = distinct
+        }
+    }
+
+    fun setAlertSoundUri(uri: String?) {
+        viewModelScope.launch {
+            settingsStore.setAlertSoundUri(uri)
+            Notifications.ensureAlertChannels(context, uri?.let { android.net.Uri.parse(it) })
+        }
+    }
+
+    fun setLoopAlertSound(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setLoopAlertSound(enabled) }
+    }
+
+    fun setOverrideVolume(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setOverrideVolume(enabled) }
+    }
+
+    fun setAlertVolume(volume: Int) {
+        viewModelScope.launch { settingsStore.setAlertVolume(volume) }
+    }
+
+    fun playSoundPreview(overrideUri: android.net.Uri? = null) {
+        stopSoundPreview()
+        val uri = overrideUri
+            ?: state.value.settings.alertSoundUri?.let { android.net.Uri.parse(it) }
+            ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+        val ringtone = runCatching { android.media.RingtoneManager.getRingtone(context, uri) }.getOrNull() ?: return
+        ringtone.audioAttributes = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        if (state.value.settings.overrideVolume) {
+            val audioManager = context.getSystemService(android.media.AudioManager::class.java)
+            if (audioManager != null) {
+                val max = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
+                val target = (max * (state.value.settings.alertVolume.coerceIn(10, 100) / 100f)).let { kotlin.math.round(it).toInt() }.coerceIn(1, max)
+                runCatching { audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, target, 0) }
+            }
+        }
+
+        runCatching {
+            ringtone.play()
+            previewRingtone = ringtone
+            isPlayingPreview.value = true
+        }
+
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(3000)
+            if (previewRingtone == ringtone) {
+                stopSoundPreview()
+            }
+        }
+    }
+
+    fun stopSoundPreview() {
+        runCatching { previewRingtone?.stop() }
+        previewRingtone = null
+        isPlayingPreview.value = false
+    }
+
+    fun sendTestNotification() {
+        val prefs = state.value.settings
+        val dummyAlert = fr.amorin.jicrade.data.local.AlertEntity(
+            id = "test-alert-${System.currentTimeMillis()}",
+            tinyId = "999",
+            message = "Test alert: notifications are working properly",
+            status = "open",
+            priority = "P1",
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis(),
+            source = "Test",
+        )
+        Notifications.showNewAlert(
+            context = context,
+            alert = dummyAlert,
+            bypassDnd = prefs.overrideDnd,
+            soundUri = prefs.alertSoundUri?.let { android.net.Uri.parse(it) },
+            loop = false,
+            overrideVolume = prefs.overrideVolume,
+            alertVolume = prefs.alertVolume,
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopSoundPreview()
     }
 
     fun loadTeams() {

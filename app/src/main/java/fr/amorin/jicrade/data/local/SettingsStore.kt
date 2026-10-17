@@ -31,6 +31,10 @@ data class Settings(
     val notifyOnAck: Boolean = false,
     val backgroundSync: Boolean = true,
     val lastSyncAt: Long = 0L,
+    val alertSoundUri: String? = null,
+    val loopAlertSound: Boolean = true,
+    val overrideVolume: Boolean = false,
+    val alertVolume: Int = 100,
 )
 
 @Singleton
@@ -43,6 +47,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val notifyOnAck = booleanPreferencesKey("notify_on_ack")
     private val backgroundSync = booleanPreferencesKey("background_sync")
     private val lastSyncAt = longPreferencesKey("last_sync_at")
+    private val alertSoundUri = stringPreferencesKey("alert_sound_uri")
+    private val loopAlertSound = booleanPreferencesKey("loop_alert_sound")
+    private val overrideVolume = booleanPreferencesKey("override_volume")
+    private val alertVolume = intPreferencesKey("alert_volume")
     private val legacyOnCallMode = booleanPreferencesKey("on_call_mode")
     private val legacyNotificationsEnabled = booleanPreferencesKey("notifications_enabled")
 
@@ -58,6 +66,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             notifyOnAck = p[notifyOnAck] ?: false,
             backgroundSync = p[backgroundSync] ?: true,
             lastSyncAt = p[lastSyncAt] ?: 0L,
+            alertSoundUri = p[alertSoundUri],
+            loopAlertSound = p[loopAlertSound] ?: true,
+            overrideVolume = p[overrideVolume] ?: false,
+            alertVolume = p[alertVolume] ?: 100,
         )
     }
 
@@ -71,5 +83,11 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     suspend fun setNotifyOnAck(enabled: Boolean) = context.dataStore.edit { it[notifyOnAck] = enabled }
     suspend fun setBackgroundSync(enabled: Boolean) = context.dataStore.edit { it[backgroundSync] = enabled }
     suspend fun setLastSyncAt(epochMillis: Long) = context.dataStore.edit { it[lastSyncAt] = epochMillis }
+    suspend fun setAlertSoundUri(uri: String?) = context.dataStore.edit {
+        if (uri != null) it[alertSoundUri] = uri else it.remove(alertSoundUri)
+    }
+    suspend fun setLoopAlertSound(loop: Boolean) = context.dataStore.edit { it[loopAlertSound] = loop }
+    suspend fun setOverrideVolume(override: Boolean) = context.dataStore.edit { it[overrideVolume] = override }
+    suspend fun setAlertVolume(volume: Int) = context.dataStore.edit { it[alertVolume] = volume.coerceIn(10, 100) }
     suspend fun clear() = context.dataStore.edit { it.clear() }
 }

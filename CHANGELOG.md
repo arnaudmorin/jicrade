@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- In-app alert ringtone picker with an instant audio preview as soon as a ringtone is selected.
+- Option to keep ringing until the alert is acknowledged or opened.
+- Dedicated alert volume setting (with slider) on the alarm stream, so alerts stay loud even when the phone's notification volume is low.
+- "Test alert notification" button in settings to check sound, volume and display in real conditions.
+
+### Changed
+- Alerts are listed by creation date (most recent first) instead of by priority.
+- The `@domain` part of email addresses is no longer displayed.
+
 ## [0.2.0] - 2026-10-15
 
 ### Added

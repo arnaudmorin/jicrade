@@ -40,3 +40,8 @@ fun durationText(startMillis: Long, endMillis: Long): String {
     val hours = (endMillis - startMillis) / 3_600_000
     return if (hours % 24 == 0L && hours >= 24) "${hours / 24} d" else "$hours h"
 }
+
+private val emailRegex = Regex("""([A-Za-z0-9._%+-]+)@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*""")
+
+fun String.stripEmailDomain(): String = replace(emailRegex, "$1")
+

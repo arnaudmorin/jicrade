@@ -29,9 +29,20 @@ class NewAlertNotifier @Inject constructor(
         val candidates = result.newAlerts.filter { it.priority <= prefs.minPriority }
         val onCall = prefs.notificationMode == NotificationMode.ON_CALL && candidates.isNotEmpty() &&
             runCatching { onCallRepository.amIOnCall() }.getOrDefault(false)
+        val soundUri = prefs.alertSoundUri?.let { android.net.Uri.parse(it) }
         NotificationPolicy.select(candidates, prefs, onCall, accountId)
             .map { withDetails(it) }
-            .forEach { Notifications.showNewAlert(context, it, bypassDnd = prefs.overrideDnd) }
+            .forEach {
+                Notifications.showNewAlert(
+                    context = context,
+                    alert = it,
+                    bypassDnd = prefs.overrideDnd,
+                    soundUri = soundUri,
+                    loop = prefs.loopAlertSound,
+                    overrideVolume = prefs.overrideVolume,
+                    alertVolume = prefs.alertVolume,
+                )
+            }
 
         if (prefs.notifyOnAck) {
             result.resolved.filter { it.isAcked }.forEach { Notifications.showAcked(context, it) }
