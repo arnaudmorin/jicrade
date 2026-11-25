@@ -41,6 +41,16 @@ class WeekLayoutTest {
     }
 
     @Test
+    fun hoursLabels() {
+        val blocks = layoutWeek(
+            listOf(period(at(0, 0), at(0, 8, 30), "ana"), period(at(0, 8, 30), at(0, 20), "bob"), period(at(0, 20), at(2, 8), "carl")),
+            monday,
+            zone,
+        )
+        assertEquals(listOf("until 08:30", "08:30 – 20:00", "from 20:00", "all day", "until 08:00"), blocks.map { hoursLabel(it) })
+    }
+
+    @Test
     fun emptyPeriodsAreSkipped() {
         assertTrue(layoutWeek(listOf(period(at(0, 8), at(0, 20))), monday, zone).isEmpty())
     }
@@ -78,6 +88,21 @@ class WeekLayoutTest {
         assertEquals(colors, assignColors(ids.reversed(), 12))
         val single = assignColors(listOf("user-3"), 12)
         assertEquals(Math.floorMod("user-3".hashCode(), 12), single.getValue("user-3"))
+    }
+
+    @Test
+    fun extendingColorsKeepsExistingOnes() {
+        val first = assignColors(listOf("user-5", "user-9"), 12)
+        val extended = extendColors(first, listOf("user-1", "user-5", "user-2"), 12)
+        assertEquals(first, extended.filterKeys { it in first })
+        assertEquals(4, extended.values.toSet().size)
+    }
+
+    @Test
+    fun initialsFromNames() {
+        assertEquals("AM", initials("Alice Martin"))
+        assertEquals("JP", initials("Jean-Pierre Dupont Durand"))
+        assertEquals("B", initials("bob"))
     }
 
     @Test

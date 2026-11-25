@@ -64,10 +64,23 @@ private fun assignLanes(blocks: List<ShiftBlock>): List<ShiftBlock> {
     return out
 }
 
-fun assignColors(ids: Collection<String>, paletteSize: Int): Map<String, Int> {
-    val used = BooleanArray(paletteSize)
-    val out = LinkedHashMap<String, Int>()
-    ids.distinct().sorted().forEach { id ->
+private fun hhmm(minutes: Int): String = "%02d:%02d".format(java.util.Locale.ROOT, minutes / 60, minutes % 60)
+
+fun hoursLabel(b: ShiftBlock): String = when {
+    b.startMin == 0 && b.endMin == MINUTES_PER_DAY -> "all day"
+    b.startMin == 0 -> "until ${hhmm(b.endMin)}"
+    b.endMin == MINUTES_PER_DAY -> "from ${hhmm(b.startMin)}"
+    else -> "${hhmm(b.startMin)} – ${hhmm(b.endMin)}"
+}
+
+fun assignColors(ids: Collection<String>, paletteSize: Int): Map<String, Int> = extendColors(emptyMap(), ids, paletteSize)
+
+fun extendColors(existing: Map<String, Int>, ids: Collection<String>, paletteSize: Int): Map<String, Int> {
+    val fresh = ids.filter { it !in existing }.distinct().sorted()
+    if (fresh.isEmpty()) return existing
+    val used = BooleanArray(paletteSize).also { u -> existing.values.forEach { u[it] = true } }
+    val out = LinkedHashMap(existing)
+    fresh.forEach { id ->
         var slot = Math.floorMod(id.hashCode(), paletteSize)
         if (used.any { !it }) while (used[slot]) slot = (slot + 1) % paletteSize
         used[slot] = true
@@ -75,3 +88,6 @@ fun assignColors(ids: Collection<String>, paletteSize: Int): Map<String, Int> {
     }
     return out
 }
+
+fun initials(name: String): String =
+    name.split(' ', '-').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }

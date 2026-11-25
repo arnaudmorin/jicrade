@@ -1,16 +1,14 @@
 package fr.amorin.jicrade.ui.oncall
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,17 +19,15 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -39,54 +35,63 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import fr.amorin.jicrade.data.local.OnCallPeriodEntity
-import fr.amorin.jicrade.ui.common.EmptyState
-import fr.amorin.jicrade.ui.common.durationText
-import fr.amorin.jicrade.ui.common.formatDateTime
-import fr.amorin.jicrade.ui.common.formatTime
 import fr.amorin.jicrade.ui.theme.personColors
+import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.abs
 
-private val hourHeight = 40.dp
-private val gutterWidth = 36.dp
-private val dayHeader: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE")
-private val dayNumber: DateTimeFormatter = DateTimeFormatter.ofPattern("d")
+private const val CENTER = 520
+private val dayLabelWidth = 36.dp
+private val trackHeight = 28.dp
+private val dayName: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE")
 private val rangeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
+private val rangeYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
+
+private data class SlotKey(val week: LocalDate, val day: Int, val index: Int)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(onBack: () -> Unit, vm: ScheduleViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var selected by remember { mutableStateOf<OnCallPeriodEntity?>(null) }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = CENTER)
+    val scope = rememberCoroutineScope()
+    var selected by remember { mutableStateOf<SlotKey?>(null) }
+    val topWeek by remember { derivedStateOf { state.thisWeek.plusWeeks((listState.firstVisibleItemIndex - CENTER).toLong()) } }
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it); vm.clearError() } }
+    LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) selected = null }
 
     Scaffold(
         topBar = {
@@ -95,75 +100,48 @@ fun ScheduleScreen(onBack: () -> Unit, vm: ScheduleViewModel = hiltViewModel()) 
                 title = {
                     Column {
                         Text(state.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(subtitle(state), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(subtitle(topWeek, state), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 actions = {
-                    IconButton(onClick = vm::previous) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous week") }
-                    TextButton(onClick = vm::today) { Text("Today") }
-                    IconButton(onClick = vm::next) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next week") }
+                    TextButton(onClick = { scope.launch { listState.animateScrollToItem(CENTER) } }) { Text("Today") }
                 },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().swipeWeeks(vm::previous, vm::next)) {
-            if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth()) else Spacer(Modifier.height(4.dp))
-            Legend(state)
-            DayHeader(state.weekStart, state.zone)
-            HorizontalDivider()
-            PullToRefreshBox(isRefreshing = false, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
-                when {
-                    state.periods == null -> EmptyState("Loading…")
-                    state.blocks.isEmpty() -> EmptyState("Nobody on call this week", "Pull down to refresh")
-                    else -> WeekGrid(state, onSelect = { selected = it })
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (state.loading.isNotEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth()) else Spacer(Modifier.height(4.dp))
+            PullToRefreshBox(isRefreshing = false, onRefresh = { vm.refresh(visibleWeeks(listState, state.thisWeek)) }, modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(count = 2 * CENTER + 1, key = { it }) { i ->
+                        val week = state.thisWeek.plusWeeks((i - CENTER).toLong())
+                        LaunchedEffect(week) { vm.ensure(week) }
+                        WeekCard(week, state, selected, onSelect = { selected = if (selected == it) null else it })
+                    }
                 }
             }
         }
     }
-
-    selected?.let { p -> ShiftDialog(p, state, onDismiss = { selected = null }) }
 }
 
-private fun subtitle(state: ScheduleState): String {
-    val end = state.weekStart.plusDays(6)
-    val range = "${rangeFormat.format(state.weekStart)} – ${rangeFormat.format(end)} ${end.year}"
+private fun visibleWeeks(listState: LazyListState, thisWeek: LocalDate): List<LocalDate> =
+    listState.layoutInfo.visibleItemsInfo.map { thisWeek.plusWeeks((it.index - CENTER).toLong()) }
+
+private fun weekRange(week: LocalDate): String {
+    val end = week.plusDays(6)
+    val start = if (week.year == end.year) rangeFormat.format(week) else rangeYearFormat.format(week)
+    return "$start – ${rangeYearFormat.format(end)}"
+}
+
+private fun subtitle(week: LocalDate, state: ScheduleState): String {
     val tz = state.timezone?.takeIf { it != state.zone.id }
-    return if (tz != null) "$range · schedule in $tz" else range
-}
-
-private fun Modifier.swipeWeeks(onPrevious: () -> Unit, onNext: () -> Unit): Modifier = pointerInput(Unit) {
-    var total = 0f
-    detectHorizontalDragGestures(
-        onDragStart = { total = 0f },
-        onDragEnd = {
-            if (abs(total) > 120.dp.toPx()) if (total > 0) onPrevious() else onNext()
-        },
-    ) { _, delta -> total += delta }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Legend(state: ScheduleState) {
-    val ids = state.weekIds
-    if (ids.isEmpty()) return
-    FlowRow(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        ids.forEach { id ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ColorDot(personColors[state.colorIndex(id)])
-                Text(
-                    state.name(id),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (id == state.accountId) FontWeight.Bold else FontWeight.Normal,
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-            }
-        }
-    }
+    return if (tz != null) "${weekRange(week)} · schedule in $tz" else weekRange(week)
 }
 
 @Composable
@@ -172,28 +150,46 @@ fun ColorDot(color: Color, size: Int = 10) {
 }
 
 @Composable
-private fun DayHeader(weekStart: LocalDate, zone: ZoneId) {
-    val today = LocalDate.now(zone)
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Spacer(Modifier.width(gutterWidth))
-        (0 until 7).forEach { d ->
-            val day = weekStart.plusDays(d.toLong())
-            val isToday = day == today
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    dayHeader.format(day),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box(
-                    Modifier.size(26.dp).clip(CircleShape)
-                        .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
-                    contentAlignment = Alignment.Center,
+private fun WeekCard(week: LocalDate, state: ScheduleState, selected: SlotKey?, onSelect: (SlotKey) -> Unit) {
+    val blocks = state.weeks[week]
+    val byDay = blocks.orEmpty().groupBy { it.day }
+    val today = LocalDate.now(state.zone)
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(weekRange(week), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                val tag = when {
+                    week == state.thisWeek -> "This week"
+                    blocks == null && week in state.loading -> "Loading…"
+                    blocks == null -> "Not loaded, pull to refresh"
+                    else -> null
+                }
+                if (tag != null) Text(tag, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
+                Spacer(Modifier.width(dayLabelWidth + 8.dp))
+                Ticks(Modifier.weight(1f))
+            }
+            (0 until 7).forEach { d ->
+                val day = week.plusDays(d.toLong())
+                val isToday = day == today
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                        .background(if (isToday) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                        .padding(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        dayNumber.format(day),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    Column(Modifier.width(dayLabelWidth)) {
+                        Text(dayName.format(day), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        if (isToday) Text("today", fontSize = 11.sp, lineHeight = 12.sp, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    DayTrack(
+                        week, d, byDay[d].orEmpty(), state,
+                        nowMin = if (isToday) minuteOfDay(System.currentTimeMillis(), state.zone) else null,
+                        selected = selected,
+                        onSelect = onSelect,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
@@ -202,123 +198,121 @@ private fun DayHeader(weekStart: LocalDate, zone: ZoneId) {
 }
 
 @Composable
-private fun WeekGrid(state: ScheduleState, onSelect: (OnCallPeriodEntity) -> Unit) {
-    val scroll = rememberScrollState()
-    val density = LocalDensity.current
-    val lineColor = MaterialTheme.colorScheme.outlineVariant
-    val now = System.currentTimeMillis()
-    val todayIndex = weekStartOf(now, state.zone).let { if (it == state.weekStart) LocalDate.now(state.zone).dayOfWeek.value - 1 else -1 }
-    val nowMin = minuteOfDay(now, state.zone)
-    val byDay = state.blocks.groupBy { it.day }
-
-    LaunchedEffect(state.weekStart) {
-        val hour = if (todayIndex >= 0) (nowMin / 60 - 2).coerceAtLeast(0) else 7
-        scroll.scrollTo(with(density) { (hourHeight * hour).roundToPx() })
+private fun Ticks(modifier: Modifier) {
+    Row(modifier) {
+        listOf("00", "06", "12", "18", "24").forEachIndexed { i, label ->
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+                textAlign = when (i) {
+                    0 -> TextAlign.Start
+                    4 -> TextAlign.End
+                    else -> TextAlign.Center
+                },
+            )
+        }
     }
+}
 
-    Row(
-        Modifier.fillMaxSize().verticalScroll(scroll).height(hourHeight * 24)
-            .drawBehind {
-                val step = hourHeight.toPx()
-                for (h in 1 until 24) drawLine(lineColor, Offset(gutterWidth.toPx(), h * step), Offset(size.width, h * step), 1f)
-            },
+@Composable
+private fun DayTrack(
+    week: LocalDate,
+    day: Int,
+    blocks: List<ShiftBlock>,
+    state: ScheduleState,
+    nowMin: Int?,
+    selected: SlotKey?,
+    onSelect: (SlotKey) -> Unit,
+    modifier: Modifier,
+) {
+    BoxWithConstraints(
+        modifier.height(trackHeight).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Column(Modifier.width(gutterWidth)) {
-            (0 until 24).forEach { h ->
-                Box(Modifier.height(hourHeight).fillMaxWidth()) {
-                    if (h > 0) {
+        blocks.forEachIndexed { i, b ->
+            val key = SlotKey(week, day, i)
+            val laneHeight = trackHeight / b.lanes
+            Slot(
+                b, state,
+                isSelected = selected == key,
+                onClick = { onSelect(key) },
+                onDismiss = { if (selected == key) onSelect(key) },
+                modifier = Modifier
+                    .offset(x = maxWidth * (b.startMin / MINUTES_PER_DAY.toFloat()), y = laneHeight * b.lane)
+                    .width(maxWidth * ((b.endMin - b.startMin) / MINUTES_PER_DAY.toFloat()))
+                    .height(laneHeight),
+            )
+        }
+        if (nowMin != null) {
+            Box(
+                Modifier.offset(x = maxWidth * (nowMin / MINUTES_PER_DAY.toFloat())).width(2.dp).fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.error),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Slot(b: ShiftBlock, state: ScheduleState, isSelected: Boolean, onClick: () -> Unit, onDismiss: () -> Unit, modifier: Modifier) {
+    val ids = b.period.responderIds
+    val mine = state.accountId in ids
+    Box(
+        modifier
+            .background(personColors[state.colorIndex(ids.first())])
+            .then(if (isSelected) Modifier.background(Color.White.copy(alpha = 0.2f)) else Modifier)
+            .then(if (mine) Modifier.border(BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface)) else Modifier)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            initials(state.name(ids.first())) + if (ids.size > 1) "+" else "",
+            color = Color.White,
+            fontSize = if (b.lanes > 1) 10.sp else 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.3.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+        )
+        if (isSelected) SlotPopup(b, state, onDismiss)
+    }
+}
+
+@Composable
+private fun SlotPopup(b: ShiftBlock, state: ScheduleState, onDismiss: () -> Unit) {
+    val density = LocalDensity.current
+    val provider = remember(density) { with(density) { BelowOrAbove(gap = 6.dp.roundToPx(), margin = 8.dp.roundToPx()) } }
+    Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
+        Surface(color = MaterialTheme.colorScheme.inverseSurface, shape = RoundedCornerShape(8.dp), shadowElevation = 6.dp) {
+            Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                b.period.responderIds.forEach { id ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ColorDot(personColors[state.colorIndex(id)])
                         Text(
-                            h.toString().padStart(2, '0'),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.align(Alignment.TopCenter).offset(y = (-8).dp),
+                            state.name(id) + if (id == state.accountId) " (you)" else "",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 6.dp),
                         )
                     }
                 }
-            }
-        }
-        (0 until 7).forEach { d ->
-            BoxWithConstraints(
-                Modifier.weight(1f).fillMaxHeight().drawBehind {
-                    drawLine(lineColor, Offset(0f, 0f), Offset(0f, size.height), 1f)
-                },
-            ) {
-                byDay[d].orEmpty().forEach { b ->
-                    val laneWidth = maxWidth / b.lanes
-                    ShiftBlockView(
-                        b,
-                        state,
-                        Modifier
-                            .offset(x = laneWidth * b.lane, y = hourHeight * (b.startMin / 60f))
-                            .width(laneWidth)
-                            .height(hourHeight * ((b.endMin - b.startMin) / 60f))
-                            .padding(1.dp)
-                            .clickable { onSelect(b.period) },
-                    )
-                }
-                if (d == todayIndex) {
-                    Box(
-                        Modifier.offset(y = hourHeight * (nowMin / 60f)).fillMaxWidth().height(2.dp)
-                            .background(MaterialTheme.colorScheme.error),
-                    )
-                }
+                Text(
+                    hoursLabel(b) + if (b.period.type != "base") " · ${b.period.type}" else "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.75f),
+                )
             }
         }
     }
 }
 
-@Composable
-private fun ShiftBlockView(b: ShiftBlock, state: ScheduleState, modifier: Modifier) {
-    val ids = b.period.responderIds
-    val color = personColors[state.colorIndex(ids.first())]
-    val mine = state.accountId in ids
-    val shape = RoundedCornerShape(4.dp)
-    Column(
-        modifier
-            .clip(shape)
-            .background(color)
-            .then(if (mine) Modifier.border(BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface), shape) else Modifier)
-            .padding(horizontal = 2.dp, vertical = 1.dp),
-    ) {
-        val small = 10.sp
-        Text(
-            ids.joinToString { state.name(it).substringBefore(' ') },
-            color = Color.White,
-            fontSize = small,
-            lineHeight = 11.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (b.endMin - b.startMin >= 60) {
-            Text(formatTime(b.period.start), color = Color.White, fontSize = small, lineHeight = 11.sp, maxLines = 1)
-            Text(formatTime(b.period.end), color = Color.White, fontSize = small, lineHeight = 11.sp, maxLines = 1)
-        }
-        if (b.period.type != "base" && b.endMin - b.startMin >= 90) {
-            Text(b.period.type, color = Color.White, fontSize = small, lineHeight = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+private class BelowOrAbove(private val gap: Int, private val margin: Int) : PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+        val maxX = (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin)
+        val x = (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(margin, maxX)
+        val below = anchorBounds.bottom + gap
+        val y = if (below + popupContentSize.height > windowSize.height - margin) anchorBounds.top - gap - popupContentSize.height else below
+        return IntOffset(x, y)
     }
-}
-
-@Composable
-private fun ShiftDialog(p: OnCallPeriodEntity, state: ScheduleState, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text(p.responderIds.joinToString { state.name(it) }) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                p.responderIds.forEach { id ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ColorDot(personColors[state.colorIndex(id)], 12)
-                        Text(state.name(id), modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-                Text("From ${formatDateTime(p.start)}")
-                Text("To ${formatDateTime(p.end)} (${durationText(p.start, p.end)})")
-                if (p.rotationName.isNotBlank()) Text("Rotation: ${p.rotationName}")
-                if (p.type != "base") Text("Type: ${p.type}")
-            }
-        },
-    )
 }
