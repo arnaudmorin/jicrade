@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-25
+
+### Added
+- "My on-calls" card on the on-call tab, opening your shifts for the next 6 months grouped by
+  month, with shift and hour totals.
+- Optional sync of your shifts to a "Jicrade on-call" calendar on the phone, kept up to date in
+  the background (Settings).
+
+### Fixed
+- The schedule week view could miss Sunday shifts.
+
 ## [0.4.1] - 2026-11-25
 
 ### Fixed
@@ -51,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browse and manage on-call alerts (acknowledge, close, details).
 - Notifications for new alerts and on-call shift tracking.
 
+[0.5.0]: https://github.com/arnaudmorin/jicrade/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/arnaudmorin/jicrade/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/arnaudmorin/jicrade/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/arnaudmorin/jicrade/compare/v0.2.0...v0.3.0
