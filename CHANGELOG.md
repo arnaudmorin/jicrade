@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-25
+
+### Added
+- Setting to choose how far ahead your shifts are shown: 1, 3, 6 months or 1 year (default).
+  It applies to My on-calls, the "You" line of each schedule and the calendar sync.
+
+### Changed
+- Release APKs are optimised builds, much smaller and faster. They are signed with the same key,
+  so they install over previous versions.
+- Smoother scrolling in the schedule week calendar.
+
 ## [0.5.0] - 2026-11-25
 
 ### Added
@@ -62,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browse and manage on-call alerts (acknowledge, close, details).
 - Notifications for new alerts and on-call shift tracking.
 
+[0.6.0]: https://github.com/arnaudmorin/jicrade/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/arnaudmorin/jicrade/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/arnaudmorin/jicrade/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/arnaudmorin/jicrade/compare/v0.3.0...v0.4.0
