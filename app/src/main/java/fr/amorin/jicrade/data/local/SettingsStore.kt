@@ -31,6 +31,10 @@ data class Settings(
     val notifyOnAck: Boolean = false,
     val backgroundSync: Boolean = true,
     val lastSyncAt: Long = 0L,
+    val calendarSync: Boolean = false,
+    val calendarSyncedAt: Long = 0L,
+    val calendarSyncedCount: Int = 0,
+    val calendarSyncError: String? = null,
 )
 
 @Singleton
@@ -43,6 +47,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val notifyOnAck = booleanPreferencesKey("notify_on_ack")
     private val backgroundSync = booleanPreferencesKey("background_sync")
     private val lastSyncAt = longPreferencesKey("last_sync_at")
+    private val calendarSync = booleanPreferencesKey("calendar_sync")
+    private val calendarSyncedAt = longPreferencesKey("calendar_synced_at")
+    private val calendarSyncedCount = intPreferencesKey("calendar_synced_count")
+    private val calendarSyncError = stringPreferencesKey("calendar_sync_error")
     private val legacyOnCallMode = booleanPreferencesKey("on_call_mode")
     private val legacyNotificationsEnabled = booleanPreferencesKey("notifications_enabled")
 
@@ -58,6 +66,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             notifyOnAck = p[notifyOnAck] ?: false,
             backgroundSync = p[backgroundSync] ?: true,
             lastSyncAt = p[lastSyncAt] ?: 0L,
+            calendarSync = p[calendarSync] ?: false,
+            calendarSyncedAt = p[calendarSyncedAt] ?: 0L,
+            calendarSyncedCount = p[calendarSyncedCount] ?: 0,
+            calendarSyncError = p[calendarSyncError],
         )
     }
 
@@ -71,5 +83,12 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     suspend fun setNotifyOnAck(enabled: Boolean) = context.dataStore.edit { it[notifyOnAck] = enabled }
     suspend fun setBackgroundSync(enabled: Boolean) = context.dataStore.edit { it[backgroundSync] = enabled }
     suspend fun setLastSyncAt(epochMillis: Long) = context.dataStore.edit { it[lastSyncAt] = epochMillis }
+    suspend fun setCalendarSync(enabled: Boolean) = context.dataStore.edit { it[calendarSync] = enabled }
+    suspend fun setCalendarSynced(at: Long, count: Int) = context.dataStore.edit {
+        it[calendarSyncedAt] = at
+        it[calendarSyncedCount] = count
+        it.remove(calendarSyncError)
+    }
+    suspend fun setCalendarSyncError(message: String) = context.dataStore.edit { it[calendarSyncError] = message }
     suspend fun clear() = context.dataStore.edit { it.clear() }
 }

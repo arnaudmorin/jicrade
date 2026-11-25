@@ -16,6 +16,8 @@ import fr.amorin.jicrade.data.remote.toUserMessage
 import fr.amorin.jicrade.data.repo.AuthRepository
 import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.nextShift
+import fr.amorin.jicrade.sync.CalendarSyncScheduler
+import fr.amorin.jicrade.sync.CalendarSyncer
 import fr.amorin.jicrade.sync.OnCallPollingService
 import fr.amorin.jicrade.sync.PollingController
 import fr.amorin.jicrade.sync.SyncScheduler
@@ -44,6 +46,7 @@ class SettingsViewModel @Inject constructor(
     private val auth: AuthRepository,
     private val settingsStore: SettingsStore,
     private val polling: PollingController,
+    private val calendarSyncer: CalendarSyncer,
     onCall: OnCallRepository,
     sessionHolder: SessionHolder,
 ) : ViewModel() {
@@ -99,6 +102,19 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setCalendarSync(enabled: Boolean) {
+        viewModelScope.launch {
+            if (enabled) {
+                settingsStore.setCalendarSync(true)
+                CalendarSyncScheduler.apply(context, true)
+                CalendarSyncScheduler.syncNow(context)
+            } else {
+                CalendarSyncScheduler.apply(context, false)
+                calendarSyncer.disable()
+            }
+        }
+    }
+
     fun setNotifyOnAck(enabled: Boolean) {
         viewModelScope.launch { settingsStore.setNotifyOnAck(enabled) }
     }
@@ -126,6 +142,8 @@ class SettingsViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             OnCallPollingService.stop(context)
+            CalendarSyncScheduler.apply(context, false)
+            calendarSyncer.disable()
             auth.logout()
         }
     }

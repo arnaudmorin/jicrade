@@ -9,9 +9,14 @@ import fr.amorin.jicrade.data.remote.OpsApi
 import fr.amorin.jicrade.data.remote.api
 import fr.amorin.jicrade.data.remote.dto.ScheduleDto
 import fr.amorin.jicrade.data.remote.dto.TimelineDto
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.json.Json
+import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -102,10 +107,34 @@ class OnCallRepository @Inject constructor(
 
     suspend fun week(scheduleId: String, weekStart: Long): List<OnCallPeriodEntity> {
         val periods = api(json, "timeline") {
-            opsApi.timeline(cloudId, scheduleId, interval = 1, intervalUnit = "weeks", date = formatIso(weekStart))
+            opsApi.timeline(cloudId, scheduleId, interval = 7, intervalUnit = "days", date = formatIso(weekStart))
         }.toPeriods(scheduleId)
         users.ensure(periods.flatMap { it.responderIds })
         return periods
+    }
+
+    suspend fun myShifts(months: Int = 6, now: Long = System.currentTimeMillis()): List<OnCallPeriodEntity> {
+        val me = sessionHolder.require().accountId
+        var schedules = scheduleDao.schedules()
+        if (schedules.isEmpty()) {
+            refresh()
+            schedules = scheduleDao.schedules()
+        }
+        val until = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).plusMonths(months.toLong()).toInstant().toEpochMilli()
+        val results = coroutineScope {
+            schedules.map { s ->
+                async {
+                    runCatching {
+                        api(json, "timeline") {
+                            opsApi.timeline(cloudId, s.id, interval = months + 1, intervalUnit = "months", date = formatIso(now))
+                        }.toPeriods(s.id)
+                    }
+                }
+            }.awaitAll()
+        }
+        if (results.isNotEmpty() && results.all { it.isFailure }) throw results.first().exceptionOrNull()!!
+        return results.flatMap { it.getOrDefault(emptyList()) }
+            .filter { me in it.responderIds && it.end > now && it.start < until }
     }
 
     private suspend fun fetchSchedules(): List<ScheduleDto> {
@@ -154,3 +183,19 @@ fun List<OnCallPeriodEntity>.nextBoundary(accountId: String, now: Long = System.
         .flatMap { listOf(it.start, it.end) }
         .filter { it > now }
         .minOrNull()
+
+fun mergeShifts(periods: List<OnCallPeriodEntity>): List<OnCallPeriodEntity> =
+    periods.groupBy { it.scheduleId }.values.flatMap { list ->
+        list.sortedBy { it.start }.fold(mutableListOf<OnCallPeriodEntity>()) { acc, p ->
+            val last = acc.lastOrNull()
+            if (last != null && p.start <= last.end) {
+                acc[acc.lastIndex] = last.copy(
+                    end = maxOf(last.end, p.end),
+                    type = if (last.type == "base") p.type else last.type,
+                )
+            } else {
+                acc += p
+            }
+            acc
+        }
+    }.sortedBy { it.start }

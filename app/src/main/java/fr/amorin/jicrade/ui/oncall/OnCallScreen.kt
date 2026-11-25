@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,7 +45,7 @@ import fr.amorin.jicrade.ui.theme.personColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OnCallScreen(onOpenSchedule: (String) -> Unit, vm: OnCallViewModel = hiltViewModel()) {
+fun OnCallScreen(onOpenSchedule: (String) -> Unit, onOpenMyShifts: () -> Unit, vm: OnCallViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it); vm.clearError() } }
@@ -58,9 +59,36 @@ fun OnCallScreen(onOpenSchedule: (String) -> Unit, vm: OnCallViewModel = hiltVie
                 )
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item(key = "mine") { MyShiftsCard(state.mine, onClick = onOpenMyShifts) }
                     items(state.schedules, key = { it.id }) { card -> ScheduleCardView(card, state, onClick = { onOpenSchedule(card.id) }) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MyShiftsCard(mine: MyNextShift?, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (mine?.current == true) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer) else CardDefaults.cardColors(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("My on-calls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(Icons.Default.Event, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(
+                when {
+                    mine == null -> "No shift in the next 4 weeks"
+                    mine.current -> "On call until ${formatDateTime(mine.period.end)} · ${mine.scheduleName}"
+                    else -> "Next ${formatDateTime(mine.period.start)} (${relativeIn(mine.period.start)}) · ${mine.scheduleName}"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (mine?.current == true) FontWeight.SemiBold else FontWeight.Normal,
+            )
+            Text("See next 6 months ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }

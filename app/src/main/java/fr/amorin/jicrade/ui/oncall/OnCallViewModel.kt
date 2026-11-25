@@ -10,6 +10,7 @@ import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.OnCallSnapshot
 import fr.amorin.jicrade.data.repo.currentShift
 import fr.amorin.jicrade.data.repo.nextShift
+import fr.amorin.jicrade.sync.CalendarSyncer
 import fr.amorin.jicrade.sync.PollingController
 import fr.amorin.jicrade.ui.theme.personColors
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,8 +33,11 @@ data class ScheduleCard(
     val colors: Map<String, Int>,
 )
 
+data class MyNextShift(val period: OnCallPeriodEntity, val scheduleName: String, val current: Boolean)
+
 data class OnCallState(
     val schedules: List<ScheduleCard> = emptyList(),
+    val mine: MyNextShift? = null,
     val names: Map<String, String> = emptyMap(),
     val accountId: String = "",
     val refreshing: Boolean = false,
@@ -47,13 +51,14 @@ data class OnCallState(
 class OnCallViewModel @Inject constructor(
     private val onCall: OnCallRepository,
     private val polling: PollingController,
+    private val calendarSyncer: CalendarSyncer,
     sessionHolder: SessionHolder,
 ) : ViewModel() {
     private val transient = MutableStateFlow(OnCallState())
 
     val state: StateFlow<OnCallState> = combine(onCall.snapshot(), sessionHolder.session, transient) { snap, session, t ->
         val me = session?.accountId.orEmpty()
-        t.copy(schedules = snap.toCards(me), names = snap.names, accountId = me)
+        t.copy(schedules = snap.toCards(me), mine = snap.myNext(me), names = snap.names, accountId = me)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OnCallState())
 
     init {
@@ -68,6 +73,7 @@ class OnCallViewModel @Inject constructor(
                 onCall.refresh()
                 transient.update { it.copy(refreshing = false, loadedOnce = true) }
                 polling.evaluate()
+                runCatching { calendarSyncer.syncIfStale() }
             } catch (e: Exception) {
                 transient.update { it.copy(refreshing = false, loadedOnce = true, error = e.toUserMessage()) }
             }
@@ -75,6 +81,14 @@ class OnCallViewModel @Inject constructor(
     }
 
     fun clearError() = transient.update { it.copy(error = null) }
+
+    private fun OnCallSnapshot.myNext(me: String): MyNextShift? {
+        val now = System.currentTimeMillis()
+        val current = schedules.firstNotNullOfOrNull { s -> s.periods.currentShift(me, now)?.let { MyNextShift(it, s.schedule.name, true) } }
+        return current ?: schedules
+            .mapNotNull { s -> s.periods.nextShift(me, now)?.let { MyNextShift(it, s.schedule.name, false) } }
+            .minByOrNull { it.period.start }
+    }
 
     private fun OnCallSnapshot.toCards(me: String): List<ScheduleCard> {
         val now = System.currentTimeMillis()

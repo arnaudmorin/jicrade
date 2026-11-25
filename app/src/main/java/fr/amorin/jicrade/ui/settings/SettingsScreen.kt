@@ -2,6 +2,7 @@ package fr.amorin.jicrade.ui.settings
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
@@ -50,6 +51,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -60,6 +62,7 @@ import fr.amorin.jicrade.data.local.NotificationMode
 import fr.amorin.jicrade.data.local.PollingMode
 import fr.amorin.jicrade.ui.common.formatDateTime
 import fr.amorin.jicrade.sync.Notifications
+import fr.amorin.jicrade.sync.PhoneCalendar
 
 private val intervals = listOf(30, 60, 120, 300)
 private val priorities = listOf("P1", "P2", "P3", "P4", "P5")
@@ -87,6 +90,17 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasNotificationPermission = granted || Notifications.canPost(context)
     }
+    var calendarDenied by remember { mutableStateOf(false) }
+    val calendarPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        val granted = result.values.all { it }
+        calendarDenied = !granted
+        if (granted) vm.setCalendarSync(true)
+    }
+    fun enableCalendarSync() {
+        val missing = PhoneCalendar.PERMISSIONS.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty()) vm.setCalendarSync(true) else calendarPermission.launch(missing.toTypedArray())
+    }
+
     fun ensureNotificationPermission() {
         if (!Notifications.canPost(context)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -212,6 +226,29 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             ListItem(
                 headlineContent = { Text("Notify when someone else acknowledges") },
                 trailingContent = { Switch(checked = state.settings.notifyOnAck, onCheckedChange = vm::setNotifyOnAck, enabled = notificationsOn) },
+            )
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Sync my shifts to the phone calendar") },
+                supportingContent = {
+                    val c = state.settings
+                    Text(
+                        when {
+                            calendarDenied -> "Calendar permission refused. Allow it to sync your shifts"
+                            !c.calendarSync -> "Adds a \"Jicrade on-call\" calendar with your shifts for the next 6 months"
+                            c.calendarSyncError != null -> "Last sync failed: ${c.calendarSyncError}"
+                            c.calendarSyncedAt == 0L -> "Syncing…"
+                            else -> "Last synced ${formatDateTime(c.calendarSyncedAt)} · ${c.calendarSyncedCount} shifts"
+                        },
+                        color = if (calendarDenied || (c.calendarSync && c.calendarSyncError != null)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = state.settings.calendarSync,
+                        onCheckedChange = { on -> if (on) enableCalendarSync() else { calendarDenied = false; vm.setCalendarSync(false) } },
+                    )
+                },
             )
             HorizontalDivider()
 

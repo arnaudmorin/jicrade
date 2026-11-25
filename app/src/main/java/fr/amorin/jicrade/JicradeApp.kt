@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
 import fr.amorin.jicrade.data.local.SettingsStore
+import fr.amorin.jicrade.sync.CalendarSyncScheduler
 import fr.amorin.jicrade.sync.Notifications
 import fr.amorin.jicrade.sync.SyncScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +26,9 @@ class JicradeApp : Application(), Configuration.Provider {
         super.onCreate()
         Notifications.createChannels(this)
         CoroutineScope(Dispatchers.IO).launch {
-            SyncScheduler.applyBackgroundSync(this@JicradeApp, settings.settings.first().backgroundSync)
+            val current = settings.settings.first()
+            SyncScheduler.applyBackgroundSync(this@JicradeApp, current.backgroundSync)
+            CalendarSyncScheduler.apply(this@JicradeApp, current.calendarSync)
         }
     }
 }
