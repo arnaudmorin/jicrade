@@ -24,6 +24,7 @@ import androidx.navigation.navArgument
 import fr.amorin.jicrade.ui.alerts.AlertDetailScreen
 import fr.amorin.jicrade.ui.alerts.AlertListScreen
 import fr.amorin.jicrade.ui.oncall.OnCallScreen
+import fr.amorin.jicrade.ui.oncall.ScheduleScreen
 import fr.amorin.jicrade.ui.settings.SettingsScreen
 
 object Routes {
@@ -32,6 +33,8 @@ object Routes {
     const val SETTINGS = "settings"
     const val ALERT = "alert/{id}"
     fun alert(id: String) = "alert/$id"
+    const val SCHEDULE = "oncall/{id}"
+    fun schedule(id: String) = "oncall/$id"
 }
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
@@ -72,7 +75,10 @@ fun AppNav(navController: NavHostController) {
     ) { padding ->
         NavHost(navController, startDestination = Routes.ALERTS, modifier = Modifier.padding(padding)) {
             composable(Routes.ALERTS) { AlertListScreen(onOpenAlert = { navController.navigate(Routes.alert(it)) }) }
-            composable(Routes.ONCALL) { OnCallScreen() }
+            composable(Routes.ONCALL) { OnCallScreen(onOpenSchedule = { navController.navigate(Routes.schedule(it)) }) }
+            composable(Routes.SCHEDULE, arguments = listOf(navArgument("id") { })) {
+                ScheduleScreen(onBack = { navController.popBackStack() })
+            }
             composable(Routes.SETTINGS) { SettingsScreen() }
             composable(Routes.ALERT, arguments = listOf(navArgument("id") { })) {
                 AlertDetailScreen(onBack = { navController.popBackStack() })

@@ -11,6 +11,7 @@ import fr.amorin.jicrade.data.repo.OnCallSnapshot
 import fr.amorin.jicrade.data.repo.currentShift
 import fr.amorin.jicrade.data.repo.nextShift
 import fr.amorin.jicrade.sync.PollingController
+import fr.amorin.jicrade.ui.theme.personColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +29,7 @@ data class ScheduleCard(
     val onCallNext: List<String>,
     val myCurrentShift: OnCallPeriodEntity?,
     val myNextShift: OnCallPeriodEntity?,
-    val upcoming: List<OnCallPeriodEntity>,
+    val colors: Map<String, Int>,
 )
 
 data class OnCallState(
@@ -86,7 +87,7 @@ class OnCallViewModel @Inject constructor(
                 onCallNext = s.schedule.nextOnCallIds,
                 myCurrentShift = s.periods.currentShift(me, now),
                 myNextShift = s.periods.nextShift(me, now),
-                upcoming = s.periods.filter { it.end > now }.sortedBy { it.start }.take(14),
+                colors = assignColors(s.schedule.onCallIds + s.schedule.nextOnCallIds + s.periods.flatMap { it.responderIds }, personColors.size),
             )
         }
     }

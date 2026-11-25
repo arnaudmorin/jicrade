@@ -100,6 +100,14 @@ class OnCallRepository @Inject constructor(
         users.ensure(accountIds + session.accountId)
     }
 
+    suspend fun week(scheduleId: String, weekStart: Long): List<OnCallPeriodEntity> {
+        val periods = api(json, "timeline") {
+            opsApi.timeline(cloudId, scheduleId, interval = 1, intervalUnit = "weeks", date = formatIso(weekStart))
+        }.toPeriods(scheduleId)
+        users.ensure(periods.flatMap { it.responderIds })
+        return periods
+    }
+
     private suspend fun fetchSchedules(): List<ScheduleDto> {
         val out = mutableListOf<ScheduleDto>()
         while (true) {
