@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -257,9 +258,10 @@ private fun DayTrack(
 private fun Slot(b: ShiftBlock, state: ScheduleState, isSelected: Boolean, onClick: () -> Unit, onDismiss: () -> Unit, modifier: Modifier) {
     val ids = b.period.responderIds
     val mine = state.accountId in ids
+    val color = personColors[state.colorIndex(ids.first())]
     Box(
         modifier
-            .background(personColors[state.colorIndex(ids.first())])
+            .background(color)
             .then(if (isSelected) Modifier.background(Color.White.copy(alpha = 0.2f)) else Modifier)
             .then(if (mine) Modifier.border(BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface)) else Modifier)
             .clickable(onClick = onClick),
@@ -267,7 +269,7 @@ private fun Slot(b: ShiftBlock, state: ScheduleState, isSelected: Boolean, onCli
     ) {
         Text(
             initials(state.name(ids.first())) + if (ids.size > 1) "+" else "",
-            color = Color.White,
+            color = if (color.luminance() > 0.5f) Color.Black else Color.White,
             fontSize = if (b.lanes > 1) 10.sp else 11.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.3.sp,

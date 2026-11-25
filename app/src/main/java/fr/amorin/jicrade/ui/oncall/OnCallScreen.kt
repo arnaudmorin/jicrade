@@ -2,6 +2,8 @@ package fr.amorin.jicrade.ui.oncall
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -89,19 +91,24 @@ private fun ScheduleCardView(card: ScheduleCard, state: OnCallState, onClick: ()
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun People(label: String, ids: List<String>, card: ScheduleCard, state: OnCallState, bold: Boolean = false) {
     if (ids.isEmpty()) return Line(label, "nobody", bold)
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth()) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(56.dp))
-        ids.forEachIndexed { i, id ->
-            ColorDot(personColors[card.colors[id] ?: 0])
-            Text(
-                state.name(id) + if (i < ids.lastIndex) ", " else "",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
-                modifier = Modifier.padding(start = 4.dp),
-            )
+        FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ids.forEach { id ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ColorDot(personColors[card.colors[id] ?: 0])
+                    Text(
+                        state.name(id),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
+            }
         }
     }
 }
