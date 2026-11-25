@@ -36,6 +36,8 @@ fun relativeIn(epochMillis: Long, now: Long = System.currentTimeMillis()): Strin
     }
 }
 
+fun horizonText(months: Int): String = if (months == 1) "next month" else "next $months months"
+
 fun durationText(startMillis: Long, endMillis: Long): String {
     val hours = (endMillis - startMillis) / 3_600_000
     return if (hours % 24 == 0L && hours >= 24) "${hours / 24} d" else "$hours h"

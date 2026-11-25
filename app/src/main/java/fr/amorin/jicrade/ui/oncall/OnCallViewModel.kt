@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.amorin.jicrade.data.auth.SessionHolder
 import fr.amorin.jicrade.data.local.OnCallPeriodEntity
+import fr.amorin.jicrade.data.local.SettingsStore
 import fr.amorin.jicrade.data.remote.toUserMessage
 import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.OnCallSnapshot
 import fr.amorin.jicrade.data.repo.currentShift
+import fr.amorin.jicrade.data.repo.horizonEnd
 import fr.amorin.jicrade.data.repo.nextShift
 import fr.amorin.jicrade.sync.CalendarSyncer
 import fr.amorin.jicrade.sync.PollingController
@@ -40,6 +42,7 @@ data class OnCallState(
     val mine: MyNextShift? = null,
     val names: Map<String, String> = emptyMap(),
     val accountId: String = "",
+    val horizonMonths: Int = 12,
     val refreshing: Boolean = false,
     val loadedOnce: Boolean = false,
     val error: String? = null,
@@ -52,13 +55,15 @@ class OnCallViewModel @Inject constructor(
     private val onCall: OnCallRepository,
     private val polling: PollingController,
     private val calendarSyncer: CalendarSyncer,
+    settings: SettingsStore,
     sessionHolder: SessionHolder,
 ) : ViewModel() {
     private val transient = MutableStateFlow(OnCallState())
 
-    val state: StateFlow<OnCallState> = combine(onCall.snapshot(), sessionHolder.session, transient) { snap, session, t ->
+    val state: StateFlow<OnCallState> = combine(onCall.snapshot(), sessionHolder.session, settings.settings, transient) { snap, session, prefs, t ->
         val me = session?.accountId.orEmpty()
-        t.copy(schedules = snap.toCards(me), mine = snap.myNext(me), names = snap.names, accountId = me)
+        val until = horizonEnd(System.currentTimeMillis(), prefs.horizonMonths)
+        t.copy(schedules = snap.toCards(me, until), mine = snap.myNext(me, until), names = snap.names, accountId = me, horizonMonths = prefs.horizonMonths)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OnCallState())
 
     init {
@@ -73,7 +78,7 @@ class OnCallViewModel @Inject constructor(
                 onCall.refresh()
                 transient.update { it.copy(refreshing = false, loadedOnce = true) }
                 polling.evaluate()
-                runCatching { calendarSyncer.syncIfStale() }
+                runCatching { calendarSyncer.syncCached() }
             } catch (e: Exception) {
                 transient.update { it.copy(refreshing = false, loadedOnce = true, error = e.toUserMessage()) }
             }
@@ -82,15 +87,15 @@ class OnCallViewModel @Inject constructor(
 
     fun clearError() = transient.update { it.copy(error = null) }
 
-    private fun OnCallSnapshot.myNext(me: String): MyNextShift? {
+    private fun OnCallSnapshot.myNext(me: String, until: Long): MyNextShift? {
         val now = System.currentTimeMillis()
         val current = schedules.firstNotNullOfOrNull { s -> s.periods.currentShift(me, now)?.let { MyNextShift(it, s.schedule.name, true) } }
         return current ?: schedules
-            .mapNotNull { s -> s.periods.nextShift(me, now)?.let { MyNextShift(it, s.schedule.name, false) } }
+            .mapNotNull { s -> s.periods.nextShift(me, now)?.takeIf { it.start < until }?.let { MyNextShift(it, s.schedule.name, false) } }
             .minByOrNull { it.period.start }
     }
 
-    private fun OnCallSnapshot.toCards(me: String): List<ScheduleCard> {
+    private fun OnCallSnapshot.toCards(me: String, until: Long): List<ScheduleCard> {
         val now = System.currentTimeMillis()
         return schedules.map { s ->
             ScheduleCard(
@@ -100,7 +105,7 @@ class OnCallViewModel @Inject constructor(
                 onCallNow = s.schedule.onCallIds,
                 onCallNext = s.schedule.nextOnCallIds,
                 myCurrentShift = s.periods.currentShift(me, now),
-                myNextShift = s.periods.nextShift(me, now),
+                myNextShift = s.periods.nextShift(me, now)?.takeIf { it.start < until },
                 colors = assignColors(s.schedule.onCallIds + s.schedule.nextOnCallIds + s.periods.flatMap { it.responderIds }, personColors.size),
             )
         }

@@ -61,12 +61,14 @@ import fr.amorin.jicrade.BuildConfig
 import fr.amorin.jicrade.data.local.NotificationMode
 import fr.amorin.jicrade.data.local.PollingMode
 import fr.amorin.jicrade.ui.common.formatDateTime
+import fr.amorin.jicrade.ui.common.horizonText
 import fr.amorin.jicrade.sync.Notifications
 import fr.amorin.jicrade.sync.PhoneCalendar
 
 private val intervals = listOf(30, 60, 120, 300)
 private val priorities = listOf("P1", "P2", "P3", "P4", "P5")
 private val notificationModes = listOf(NotificationMode.ON_CALL to "On call", NotificationMode.ALWAYS to "Always", NotificationMode.NEVER to "Never")
+private val horizons = listOf(1 to "1 month", 3 to "3 months", 6 to "6 months", 12 to "1 year")
 private val pollingModes = listOf(PollingMode.AUTO to "Auto", PollingMode.ON to "Always", PollingMode.OFF to "Off")
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -228,6 +230,24 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 trailingContent = { Switch(checked = state.settings.notifyOnAck, onCheckedChange = vm::setNotifyOnAck, enabled = notificationsOn) },
             )
             HorizontalDivider()
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Show my shifts for", style = MaterialTheme.typography.labelLarge)
+                SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
+                    horizons.forEachIndexed { i, (months, label) ->
+                        SegmentedButton(
+                            selected = state.settings.horizonMonths == months,
+                            onClick = { vm.setHorizonMonths(months) },
+                            shape = SegmentedButtonDefaults.itemShape(i, horizons.size),
+                        ) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                }
+                Text(
+                    "Used by My on-calls, the \"You\" line of each schedule and the calendar sync",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             ListItem(
                 headlineContent = { Text("Sync my shifts to the phone calendar") },
                 supportingContent = {
@@ -235,7 +255,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     Text(
                         when {
                             calendarDenied -> "Calendar permission refused. Allow it to sync your shifts"
-                            !c.calendarSync -> "Adds a \"Jicrade on-call\" calendar with your shifts for the next 6 months"
+                            !c.calendarSync -> "Adds a \"Jicrade on-call\" calendar with your shifts for the ${horizonText(c.horizonMonths)}"
                             c.calendarSyncError != null -> "Last sync failed: ${c.calendarSyncError}"
                             c.calendarSyncedAt == 0L -> "Syncing…"
                             else -> "Last synced ${formatDateTime(c.calendarSyncedAt)} · ${c.calendarSyncedCount} shifts"

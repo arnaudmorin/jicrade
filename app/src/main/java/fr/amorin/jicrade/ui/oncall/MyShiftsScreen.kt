@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.amorin.jicrade.data.local.OnCallPeriodEntity
 import fr.amorin.jicrade.ui.common.EmptyState
 import fr.amorin.jicrade.ui.common.durationText
+import fr.amorin.jicrade.ui.common.horizonText
 import fr.amorin.jicrade.ui.theme.personColors
 import java.time.format.DateTimeFormatter
 
@@ -59,7 +60,7 @@ fun MyShiftsScreen(onBack: () -> Unit, vm: MyShiftsViewModel = hiltViewModel()) 
                         Text("My on-calls")
                         val count = state.shifts?.size
                         Text(
-                            if (count == null) "Next 6 months" else "Next 6 months · ${shiftsText(count)} · ${hoursText(state.totalMs)}",
+                            horizonText(state.horizonMonths).replaceFirstChar { it.uppercase() } + if (count == null) "" else " · ${shiftsText(count)} · ${hoursText(state.totalMs)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -73,7 +74,7 @@ fun MyShiftsScreen(onBack: () -> Unit, vm: MyShiftsViewModel = hiltViewModel()) 
             val groups = state.groups
             when {
                 state.shifts == null -> EmptyState("Loading your shifts…")
-                groups.isEmpty() -> EmptyState("No on-call shift in the next 6 months", "Pull down to refresh")
+                groups.isEmpty() -> EmptyState("No on-call shift in the ${horizonText(state.horizonMonths)}", "Pull down to refresh")
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     groups.forEach { g ->
                         stickyHeader(key = g.month.toString()) {

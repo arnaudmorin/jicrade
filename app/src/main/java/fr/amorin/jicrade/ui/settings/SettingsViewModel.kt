@@ -47,7 +47,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsStore: SettingsStore,
     private val polling: PollingController,
     private val calendarSyncer: CalendarSyncer,
-    onCall: OnCallRepository,
+    private val onCall: OnCallRepository,
     sessionHolder: SessionHolder,
 ) : ViewModel() {
     private val transient = MutableStateFlow(SettingsState())
@@ -99,6 +99,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsStore.setBackgroundSync(enabled)
             SyncScheduler.applyBackgroundSync(context, enabled)
+        }
+    }
+
+    fun setHorizonMonths(months: Int) {
+        viewModelScope.launch {
+            settingsStore.setHorizonMonths(months)
+            if (settingsStore.current().calendarSync) {
+                CalendarSyncScheduler.syncNow(context)
+            } else {
+                runCatching { onCall.refresh() }
+            }
         }
     }
 

@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +73,7 @@ import fr.amorin.jicrade.ui.theme.personColors
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 private const val CENTER = 520
 private val dayLabelWidth = 36.dp
@@ -82,6 +84,12 @@ private val rangeYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d 
 
 private data class SlotKey(val week: LocalDate, val day: Int, val index: Int)
 
+@Immutable
+private class People(val colors: Map<String, Int>, val names: Map<String, String>, val accountId: String) {
+    fun name(id: String): String = names[id] ?: id.takeLast(6)
+    fun color(id: String): Color = personColors[colors[id] ?: 0]
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(onBack: () -> Unit, vm: ScheduleViewModel = hiltViewModel()) {
@@ -90,7 +98,14 @@ fun ScheduleScreen(onBack: () -> Unit, vm: ScheduleViewModel = hiltViewModel()) 
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = CENTER)
     val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf<SlotKey?>(null) }
-    val topWeek by remember { derivedStateOf { state.thisWeek.plusWeeks((listState.firstVisibleItemIndex - CENTER).toLong()) } }
+    val onSelect: (SlotKey) -> Unit = remember { { key -> selected = if (selected == key) null else key } }
+    val thisWeek = state.thisWeek
+    val topWeek by remember(thisWeek) { derivedStateOf { thisWeek.plusWeeks((listState.firstVisibleItemIndex - CENTER).toLong()) } }
+    val people = remember(state.colors, state.names, state.accountId) { People(state.colors, state.names, state.accountId) }
+    val today = remember(state.zone) { LocalDate.now(state.zone) }
+    val nowMin = remember(state.zone) { minuteOfDay(System.currentTimeMillis(), state.zone) }
+    val weeks = state.weeks
+    val loading = state.loading
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it); vm.clearError() } }
     LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) selected = null }
 
@@ -112,18 +127,28 @@ fun ScheduleScreen(onBack: () -> Unit, vm: ScheduleViewModel = hiltViewModel()) 
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (state.loading.isNotEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth()) else Spacer(Modifier.height(4.dp))
-            PullToRefreshBox(isRefreshing = false, onRefresh = { vm.refresh(visibleWeeks(listState, state.thisWeek)) }, modifier = Modifier.fillMaxSize()) {
+            if (loading.isNotEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth()) else Spacer(Modifier.height(4.dp))
+            PullToRefreshBox(isRefreshing = false, onRefresh = { vm.refresh(visibleWeeks(listState, thisWeek)) }, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     Modifier.fillMaxSize(),
                     state = listState,
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(count = 2 * CENTER + 1, key = { it }) { i ->
-                        val week = state.thisWeek.plusWeeks((i - CENTER).toLong())
+                    items(count = 2 * CENTER + 1, key = { it }, contentType = { 0 }) { i ->
+                        val week = thisWeek.plusWeeks((i - CENTER).toLong())
                         LaunchedEffect(week) { vm.ensure(week) }
-                        WeekCard(week, state, selected, onSelect = { selected = if (selected == it) null else it })
+                        WeekCard(
+                            week = week,
+                            blocks = weeks[week],
+                            loading = week in loading,
+                            isThisWeek = week == thisWeek,
+                            today = today,
+                            nowMin = nowMin,
+                            people = people,
+                            selected = selected?.takeIf { it.week == week },
+                            onSelect = onSelect,
+                        )
                     }
                 }
             }
@@ -151,17 +176,25 @@ fun ColorDot(color: Color, size: Int = 10) {
 }
 
 @Composable
-private fun WeekCard(week: LocalDate, state: ScheduleState, selected: SlotKey?, onSelect: (SlotKey) -> Unit) {
-    val blocks = state.weeks[week]
-    val byDay = blocks.orEmpty().groupBy { it.day }
-    val today = LocalDate.now(state.zone)
+private fun WeekCard(
+    week: LocalDate,
+    blocks: List<ShiftBlock>?,
+    loading: Boolean,
+    isThisWeek: Boolean,
+    today: LocalDate,
+    nowMin: Int,
+    people: People,
+    selected: SlotKey?,
+    onSelect: (SlotKey) -> Unit,
+) {
+    val byDay = remember(blocks) { blocks.orEmpty().groupBy { it.day } }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(weekRange(week), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(remember(week) { weekRange(week) }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 val tag = when {
-                    week == state.thisWeek -> "This week"
-                    blocks == null && week in state.loading -> "Loading…"
+                    isThisWeek -> "This week"
+                    blocks == null && loading -> "Loading…"
                     blocks == null -> "Not loaded, pull to refresh"
                     else -> null
                 }
@@ -186,8 +219,8 @@ private fun WeekCard(week: LocalDate, state: ScheduleState, selected: SlotKey?, 
                     }
                     Spacer(Modifier.width(8.dp))
                     DayTrack(
-                        week, d, byDay[d].orEmpty(), state,
-                        nowMin = if (isToday) minuteOfDay(System.currentTimeMillis(), state.zone) else null,
+                        week, d, byDay[d].orEmpty(), people,
+                        nowMin = if (isToday) nowMin else null,
                         selected = selected,
                         onSelect = onSelect,
                         modifier = Modifier.weight(1f),
@@ -217,48 +250,47 @@ private fun Ticks(modifier: Modifier) {
     }
 }
 
+private fun Modifier.span(startMin: Int, endMin: Int): Modifier = layout { measurable, constraints ->
+    val full = constraints.maxWidth
+    val x = (full * startMin.toFloat() / MINUTES_PER_DAY).roundToInt()
+    val w = ((full * endMin.toFloat() / MINUTES_PER_DAY).roundToInt() - x).coerceAtLeast(1)
+    val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
+    layout(full, placeable.height) { placeable.place(x, 0) }
+}
+
 @Composable
 private fun DayTrack(
     week: LocalDate,
     day: Int,
     blocks: List<ShiftBlock>,
-    state: ScheduleState,
+    people: People,
     nowMin: Int?,
     selected: SlotKey?,
     onSelect: (SlotKey) -> Unit,
     modifier: Modifier,
 ) {
-    BoxWithConstraints(
-        modifier.height(trackHeight).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
-    ) {
+    Box(modifier.height(trackHeight).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
         blocks.forEachIndexed { i, b ->
             val key = SlotKey(week, day, i)
             val laneHeight = trackHeight / b.lanes
             Slot(
-                b, state,
+                b, people,
                 isSelected = selected == key,
                 onClick = { onSelect(key) },
-                onDismiss = { if (selected == key) onSelect(key) },
-                modifier = Modifier
-                    .offset(x = maxWidth * (b.startMin / MINUTES_PER_DAY.toFloat()), y = laneHeight * b.lane)
-                    .width(maxWidth * ((b.endMin - b.startMin) / MINUTES_PER_DAY.toFloat()))
-                    .height(laneHeight),
+                modifier = Modifier.offset(y = laneHeight * b.lane).span(b.startMin, b.endMin).height(laneHeight),
             )
         }
         if (nowMin != null) {
-            Box(
-                Modifier.offset(x = maxWidth * (nowMin / MINUTES_PER_DAY.toFloat())).width(2.dp).fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.error),
-            )
+            Box(Modifier.span(nowMin, nowMin).width(2.dp).fillMaxHeight().background(MaterialTheme.colorScheme.error))
         }
     }
 }
 
 @Composable
-private fun Slot(b: ShiftBlock, state: ScheduleState, isSelected: Boolean, onClick: () -> Unit, onDismiss: () -> Unit, modifier: Modifier) {
+private fun Slot(b: ShiftBlock, people: People, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val ids = b.period.responderIds
-    val mine = state.accountId in ids
-    val color = personColors[state.colorIndex(ids.first())]
+    val mine = people.accountId in ids
+    val color = people.color(ids.first())
     Box(
         modifier
             .background(color)
@@ -268,7 +300,7 @@ private fun Slot(b: ShiftBlock, state: ScheduleState, isSelected: Boolean, onCli
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            initials(state.name(ids.first())) + if (ids.size > 1) "+" else "",
+            initials(people.name(ids.first())) + if (ids.size > 1) "+" else "",
             color = if (color.luminance() > 0.5f) Color.Black else Color.White,
             fontSize = if (b.lanes > 1) 10.sp else 11.sp,
             fontWeight = FontWeight.SemiBold,
@@ -277,12 +309,12 @@ private fun Slot(b: ShiftBlock, state: ScheduleState, isSelected: Boolean, onCli
             softWrap = false,
             overflow = TextOverflow.Clip,
         )
-        if (isSelected) SlotPopup(b, state, onDismiss)
+        if (isSelected) SlotPopup(b, people, onDismiss = onClick)
     }
 }
 
 @Composable
-private fun SlotPopup(b: ShiftBlock, state: ScheduleState, onDismiss: () -> Unit) {
+private fun SlotPopup(b: ShiftBlock, people: People, onDismiss: () -> Unit) {
     val density = LocalDensity.current
     val provider = remember(density) { with(density) { BelowOrAbove(gap = 6.dp.roundToPx(), margin = 8.dp.roundToPx()) } }
     Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
@@ -290,9 +322,9 @@ private fun SlotPopup(b: ShiftBlock, state: ScheduleState, onDismiss: () -> Unit
             Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 b.period.responderIds.forEach { id ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        ColorDot(personColors[state.colorIndex(id)])
+                        ColorDot(people.color(id))
                         Text(
-                            state.name(id) + if (id == state.accountId) " (you)" else "",
+                            people.name(id) + if (id == people.accountId) " (you)" else "",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(start = 6.dp),

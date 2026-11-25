@@ -51,8 +51,9 @@ class CalendarSyncer @Inject constructor(
         }
     }
 
-    suspend fun syncIfStale(maxAgeMs: Long = 60 * 60_000L) {
-        if (System.currentTimeMillis() - settings.current().calendarSyncedAt > maxAgeMs) sync()
+    suspend fun syncCached() {
+        if (!ready()) return
+        syncFrom(mergeShifts(onCall.cachedShifts()))
     }
 
     suspend fun disable() {

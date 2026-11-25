@@ -31,10 +31,7 @@ data class ScheduleState(
     val names: Map<String, String> = emptyMap(),
     val accountId: String = "",
     val error: String? = null,
-) {
-    fun name(id: String): String = names[id] ?: id.takeLast(6)
-    fun colorIndex(id: String): Int = colors[id] ?: 0
-}
+)
 
 @HiltViewModel
 class ScheduleViewModel @Inject constructor(

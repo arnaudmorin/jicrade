@@ -5,6 +5,7 @@ import fr.amorin.jicrade.data.local.Converters
 import fr.amorin.jicrade.data.local.OnCallPeriodEntity
 import fr.amorin.jicrade.data.local.ScheduleDao
 import fr.amorin.jicrade.data.local.ScheduleEntity
+import fr.amorin.jicrade.data.local.SettingsStore
 import fr.amorin.jicrade.data.remote.OpsApi
 import fr.amorin.jicrade.data.remote.api
 import fr.amorin.jicrade.data.remote.dto.ScheduleDto
@@ -37,6 +38,7 @@ class OnCallRepository @Inject constructor(
     private val scheduleDao: ScheduleDao,
     private val users: UserRepository,
     private val json: Json,
+    private val settings: SettingsStore,
 ) {
     private val cloudId: String get() = sessionHolder.require().cloudId
     private val converters = Converters()
@@ -95,9 +97,15 @@ class OnCallRepository @Inject constructor(
                 fetchedAt = now,
             )
         }
-        val periods = mine.flatMap { s ->
-            runCatching { api(json) { opsApi.timeline(cloudId, s.id, date = formatIso(now)) } }
-                .getOrNull()?.toPeriods(s.id).orEmpty()
+        val months = settings.current().horizonMonths
+        val periods = coroutineScope {
+            mine.map { s ->
+                async {
+                    runCatching {
+                        api(json) { opsApi.timeline(cloudId, s.id, interval = months + 1, intervalUnit = "months", date = formatIso(now)) }
+                    }.getOrNull()?.toPeriods(s.id).orEmpty()
+                }
+            }.awaitAll().flatten()
         }
         scheduleDao.replaceAll(schedules, periods)
 
@@ -113,28 +121,15 @@ class OnCallRepository @Inject constructor(
         return periods
     }
 
-    suspend fun myShifts(months: Int = 6, now: Long = System.currentTimeMillis()): List<OnCallPeriodEntity> {
+    suspend fun myShifts(now: Long = System.currentTimeMillis()): List<OnCallPeriodEntity> {
+        refresh()
+        return cachedShifts(now)
+    }
+
+    suspend fun cachedShifts(now: Long = System.currentTimeMillis()): List<OnCallPeriodEntity> {
         val me = sessionHolder.require().accountId
-        var schedules = scheduleDao.schedules()
-        if (schedules.isEmpty()) {
-            refresh()
-            schedules = scheduleDao.schedules()
-        }
-        val until = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).plusMonths(months.toLong()).toInstant().toEpochMilli()
-        val results = coroutineScope {
-            schedules.map { s ->
-                async {
-                    runCatching {
-                        api(json, "timeline") {
-                            opsApi.timeline(cloudId, s.id, interval = months + 1, intervalUnit = "months", date = formatIso(now))
-                        }.toPeriods(s.id)
-                    }
-                }
-            }.awaitAll()
-        }
-        if (results.isNotEmpty() && results.all { it.isFailure }) throw results.first().exceptionOrNull()!!
-        return results.flatMap { it.getOrDefault(emptyList()) }
-            .filter { me in it.responderIds && it.end > now && it.start < until }
+        val until = horizonEnd(now, settings.current().horizonMonths)
+        return scheduleDao.periods().filter { me in it.responderIds && it.end > now && it.start < until }
     }
 
     private suspend fun fetchSchedules(): List<ScheduleDto> {
@@ -199,3 +194,6 @@ fun mergeShifts(periods: List<OnCallPeriodEntity>): List<OnCallPeriodEntity> =
             acc
         }
     }.sortedBy { it.start }
+
+fun horizonEnd(now: Long, months: Int, zone: ZoneId = ZoneId.systemDefault()): Long =
+    Instant.ofEpochMilli(now).atZone(zone).plusMonths(months.toLong()).toInstant().toEpochMilli()

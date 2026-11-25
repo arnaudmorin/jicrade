@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.amorin.jicrade.ui.common.EmptyState
 import fr.amorin.jicrade.ui.common.durationText
 import fr.amorin.jicrade.ui.common.formatDateTime
+import fr.amorin.jicrade.ui.common.horizonText
 import fr.amorin.jicrade.ui.common.relativeIn
 import fr.amorin.jicrade.ui.theme.personColors
 
@@ -59,7 +60,7 @@ fun OnCallScreen(onOpenSchedule: (String) -> Unit, onOpenMyShifts: () -> Unit, v
                 )
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    item(key = "mine") { MyShiftsCard(state.mine, onClick = onOpenMyShifts) }
+                    item(key = "mine") { MyShiftsCard(state.mine, state.horizonMonths, onClick = onOpenMyShifts) }
                     items(state.schedules, key = { it.id }) { card -> ScheduleCardView(card, state, onClick = { onOpenSchedule(card.id) }) }
                 }
             }
@@ -68,7 +69,7 @@ fun OnCallScreen(onOpenSchedule: (String) -> Unit, onOpenMyShifts: () -> Unit, v
 }
 
 @Composable
-private fun MyShiftsCard(mine: MyNextShift?, onClick: () -> Unit) {
+private fun MyShiftsCard(mine: MyNextShift?, horizonMonths: Int, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -81,14 +82,14 @@ private fun MyShiftsCard(mine: MyNextShift?, onClick: () -> Unit) {
             }
             Text(
                 when {
-                    mine == null -> "No shift in the next 4 weeks"
+                    mine == null -> "No shift in the ${horizonText(horizonMonths)}"
                     mine.current -> "On call until ${formatDateTime(mine.period.end)} · ${mine.scheduleName}"
                     else -> "Next ${formatDateTime(mine.period.start)} (${relativeIn(mine.period.start)}) · ${mine.scheduleName}"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (mine?.current == true) FontWeight.SemiBold else FontWeight.Normal,
             )
-            Text("See next 6 months ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text("See ${horizonText(horizonMonths)} ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -113,7 +114,7 @@ private fun ScheduleCardView(card: ScheduleCard, state: OnCallState, onClick: ()
                 card.myCurrentShift != null -> Line("You", "on call until ${formatDateTime(card.myCurrentShift.end)}", bold = true)
                 iAmOnCall -> Line("You", "on call now", bold = true)
                 card.myNextShift != null -> Line("You", "next ${formatDateTime(card.myNextShift.start)} (${relativeIn(card.myNextShift.start)}), ${durationText(card.myNextShift.start, card.myNextShift.end)}")
-                else -> Line("You", "no shift in the next 4 weeks")
+                else -> Line("You", "no shift in the ${horizonText(state.horizonMonths)}")
             }
         }
     }

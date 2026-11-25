@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.amorin.jicrade.data.local.OnCallPeriodEntity
+import fr.amorin.jicrade.data.local.SettingsStore
 import fr.amorin.jicrade.data.remote.toUserMessage
 import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.mergeShifts
@@ -25,6 +26,7 @@ data class MyShiftsState(
     val scheduleNames: Map<String, String> = emptyMap(),
     val colors: Map<String, Int> = emptyMap(),
     val zone: ZoneId = ZoneId.systemDefault(),
+    val horizonMonths: Int = 12,
     val loading: Boolean = false,
     val error: String? = null,
 ) {
@@ -36,14 +38,16 @@ data class MyShiftsState(
 class MyShiftsViewModel @Inject constructor(
     private val onCall: OnCallRepository,
     private val calendarSyncer: CalendarSyncer,
+    settings: SettingsStore,
 ) : ViewModel() {
     private val transient = MutableStateFlow(MyShiftsState())
 
-    val state: StateFlow<MyShiftsState> = combine(onCall.snapshot(), transient) { snap, t ->
+    val state: StateFlow<MyShiftsState> = combine(onCall.snapshot(), settings.settings, transient) { snap, prefs, t ->
         val ids = snap.schedules.map { it.schedule.id }
         t.copy(
             scheduleNames = snap.schedules.associate { it.schedule.id to it.schedule.name },
             colors = assignColors(ids, personColors.size),
+            horizonMonths = prefs.horizonMonths,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MyShiftsState())
 
