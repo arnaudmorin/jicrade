@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-25
+
+### Changed
+- The schedule calendar shows one card per week with a row per day instead of an hourly grid.
+  Each day is a 24h bar with the initials of who is on call; tap a slot to see the full name
+  and hours. Weeks load as you scroll in either direction, and "Today" jumps back to the
+  current week.
+
 ## [0.3.0] - 2026-11-25
 
 ### Added
@@ -37,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browse and manage on-call alerts (acknowledge, close, details).
 - Notifications for new alerts and on-call shift tracking.
 
+[0.4.0]: https://github.com/arnaudmorin/jicrade/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/arnaudmorin/jicrade/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/arnaudmorin/jicrade/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/arnaudmorin/jicrade/releases/tag/v0.1.0
