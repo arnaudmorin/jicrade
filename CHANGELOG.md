@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.0] - 2026-11-27
 
 ### Added
-- Priority filter for open alerts: the filter button in the alert list opens a P1 to P5 slider.
-  The choice is remembered, and the list says how many lower-priority alerts are hidden.
+- Priority filter for alerts: the filter button in the alert list opens a P1 to P5 slider.
+  It applies to the Open, Acked and Closed tabs, the choice is remembered, and each list says
+  how many lower-priority alerts are hidden.
 
 ### Changed
 - Refreshed Material 3 look: indigo theme (no longer follows the wallpaper colours), softer

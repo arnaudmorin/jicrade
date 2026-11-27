@@ -30,7 +30,7 @@ data class AlertListState(
     val acked: List<AlertEntity> = emptyList(),
     val closed: List<AlertEntity> = emptyList(),
     val maxPriority: String = "P5",
-    val hiddenOpen: Int = 0,
+    val hidden: Map<AlertTab, Int> = emptyMap(),
     val teamName: String = "",
     val refreshing: Boolean = false,
     val lastSyncAt: Long = 0L,
@@ -58,14 +58,18 @@ class AlertListViewModel @Inject constructor(
         alerts.alerts(), settings.settings, sessionHolder.session, onCall.onCallNow(), transient,
     ) { list, prefs, session, onCallNow, t ->
         val sorted = list.sortedWith(compareByDescending<AlertEntity> { it.createdAt }.thenBy { it.priority })
-        val open = sorted.filter { it.isOpen }
-        val shown = open.filter { it.priority <= prefs.listMaxPriority }
+        val byTab = mapOf(
+            AlertTab.OPEN to sorted.filter { it.isOpen },
+            AlertTab.ACKED to sorted.filter { it.isAcked },
+            AlertTab.CLOSED to list.filter { it.isClosed }.sortedByDescending { it.closeTime ?: it.updatedAt },
+        )
+        val shown = byTab.mapValues { (_, alerts) -> alerts.filter { it.priority <= prefs.listMaxPriority } }
         t.copy(
-            open = shown,
+            open = shown.getValue(AlertTab.OPEN),
+            acked = shown.getValue(AlertTab.ACKED),
+            closed = shown.getValue(AlertTab.CLOSED),
             maxPriority = prefs.listMaxPriority,
-            hiddenOpen = open.size - shown.size,
-            acked = sorted.filter { it.isAcked },
-            closed = list.filter { it.isClosed }.sortedByDescending { it.closeTime ?: it.updatedAt },
+            hidden = byTab.mapValues { (tab, alerts) -> alerts.size - shown.getValue(tab).size },
             teamName = session?.teamName.orEmpty(),
             lastSyncAt = prefs.lastSyncAt,
             status = when (prefs.notificationMode) {

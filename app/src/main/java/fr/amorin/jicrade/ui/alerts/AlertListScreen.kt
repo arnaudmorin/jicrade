@@ -136,7 +136,7 @@ fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hilt
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                     val tab = AlertTab.entries[page]
                     val list = state.forTab(tab)
-                    val hidden = if (tab == AlertTab.OPEN) state.hiddenOpen else 0
+                    val hidden = state.hidden[tab] ?: 0
                     LazyColumn(Modifier.fillMaxSize()) {
                         if (hidden > 0) {
                             item(key = "hidden") {
@@ -171,7 +171,7 @@ fun AlertListScreen(onOpenAlert: (String) -> Unit, vm: AlertListViewModel = hilt
     if (showFilter) {
         PriorityFilterSheet(
             current = state.maxPriority,
-            hidden = state.hiddenOpen,
+            hidden = state.hidden.values.sum(),
             onApply = vm::setMaxPriority,
             onDismiss = { showFilter = false },
         )
@@ -201,7 +201,7 @@ private fun PriorityFilterSheet(current: String, hidden: Int, onApply: (String) 
     val selected = priorities[position.roundToInt()]
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Show open alerts up to", style = MaterialTheme.typography.headlineSmall)
+            Text("Show alerts up to", style = MaterialTheme.typography.headlineSmall)
             Text(
                 when {
                     selected == priorities.last() -> "All priorities shown"
