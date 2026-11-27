@@ -57,12 +57,17 @@ The version code is derived from the git commit count, so each new commit instal
 
 Every push and pull request is tested and built by GitHub Actions; the APK is attached to the
 run. Pushing a tag starting with `v` publishes a GitHub release with the APK (tags containing a
-`-`, like `v0.2.0-rc1`, are marked as pre-releases):
+`-`, like `v0.2.0-rc1`, are marked as pre-releases). From an up-to-date `master`:
 
 ```sh
-git tag v0.2.0
-git push origin v0.2.0
+./release.sh
 ```
+
+It picks the next version from the `[Unreleased]` CHANGELOG section (minor bump for Added,
+Changed or Removed entries, patch bump otherwise) and asks to confirm; pass a version to force
+one. It then runs the tests and lint, turns `[Unreleased]` into the new version, commits
+`Release X.Y.Z`, creates a signed `vX.Y.Z` tag and asks before pushing both. Pre-releases
+(`./release.sh 0.7.0-rc1`) only get the tag.
 
 Releases are debug builds signed with `app/debug.keystore`, which is committed on purpose so
 that every build, local or CI, can upgrade the previous one.
