@@ -27,6 +27,7 @@ data class Settings(
     val pollingMode: PollingMode = PollingMode.AUTO,
     val notificationMode: NotificationMode = NotificationMode.ON_CALL,
     val minPriority: String = "P3",
+    val listMaxPriority: String = "P5",
     val notifyOnAck: Boolean = false,
     val backgroundSync: Boolean = true,
     val lastSyncAt: Long = 0L,
@@ -47,6 +48,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val pollingMode = stringPreferencesKey("polling_mode")
     private val notificationMode = stringPreferencesKey("notification_mode")
     private val minPriority = stringPreferencesKey("min_priority")
+    private val listMaxPriority = stringPreferencesKey("list_max_priority")
     private val notifyOnAck = booleanPreferencesKey("notify_on_ack")
     private val backgroundSync = booleanPreferencesKey("background_sync")
     private val lastSyncAt = longPreferencesKey("last_sync_at")
@@ -70,6 +72,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             notificationMode = p[notificationMode]?.let { runCatching { NotificationMode.valueOf(it) }.getOrNull() }
                 ?: if (p[legacyNotificationsEnabled] == false) NotificationMode.NEVER else NotificationMode.ON_CALL,
             minPriority = p[minPriority] ?: "P3",
+            listMaxPriority = p[listMaxPriority] ?: "P5",
             notifyOnAck = p[notifyOnAck] ?: false,
             backgroundSync = p[backgroundSync] ?: true,
             lastSyncAt = p[lastSyncAt] ?: 0L,
@@ -91,6 +94,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     suspend fun setPollingMode(mode: PollingMode) = context.dataStore.edit { it[pollingMode] = mode.name }
     suspend fun setNotificationMode(mode: NotificationMode) = context.dataStore.edit { it[notificationMode] = mode.name }
     suspend fun setMinPriority(priority: String) = context.dataStore.edit { it[minPriority] = priority }
+    suspend fun setListMaxPriority(priority: String) = context.dataStore.edit { it[listMaxPriority] = priority }
     suspend fun setNotifyOnAck(enabled: Boolean) = context.dataStore.edit { it[notifyOnAck] = enabled }
     suspend fun setBackgroundSync(enabled: Boolean) = context.dataStore.edit { it[backgroundSync] = enabled }
     suspend fun setLastSyncAt(epochMillis: Long) = context.dataStore.edit { it[lastSyncAt] = epochMillis }

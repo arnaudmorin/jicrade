@@ -1,28 +1,81 @@
 package fr.amorin.jicrade.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 
-private val Light = lightColorScheme(primary = Color(0xFFB3261E), secondary = Color(0xFF625B71))
-private val Dark = darkColorScheme(primary = Color(0xFFF2B8B5), secondary = Color(0xFFCCC2DC))
-
-private val priorityColors = mapOf(
-    "P1" to Color(0xFFD32F2F),
-    "P2" to Color(0xFFF57C00),
-    "P3" to Color(0xFFFBC02D),
-    "P4" to Color(0xFF1976D2),
-    "P5" to Color(0xFF757575),
+private val Light = lightColorScheme(
+    primary = Color(0xFF4355B9),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFDEE0FF),
+    onPrimaryContainer = Color(0xFF00105C),
+    secondary = Color(0xFF5B5D72),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFE0E1F9),
+    onSecondaryContainer = Color(0xFF181A2C),
+    background = Color(0xFFFBF8FF),
+    onBackground = Color(0xFF1B1B21),
+    surface = Color(0xFFFBF8FF),
+    onSurface = Color(0xFF1B1B21),
+    surfaceVariant = Color(0xFFE3E1EC),
+    onSurfaceVariant = Color(0xFF46464F),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF5F2FC),
+    surfaceContainer = Color(0xFFF0EDF7),
+    surfaceContainerHigh = Color(0xFFEAE7F1),
+    surfaceContainerHighest = Color(0xFFE4E1EC),
+    outline = Color(0xFF767680),
+    outlineVariant = Color(0xFFC7C5D0),
 )
 
-fun priorityColor(priority: String): Color = priorityColors[priority] ?: Color(0xFF757575)
+private val Dark = darkColorScheme(
+    primary = Color(0xFFBAC3FF),
+    onPrimary = Color(0xFF08218A),
+    primaryContainer = Color(0xFF293CA0),
+    onPrimaryContainer = Color(0xFFDEE0FF),
+    secondary = Color(0xFFC4C5DD),
+    onSecondary = Color(0xFF2D2F42),
+    secondaryContainer = Color(0xFF434659),
+    onSecondaryContainer = Color(0xFFE0E1F9),
+    background = Color(0xFF131318),
+    onBackground = Color(0xFFE4E1E9),
+    surface = Color(0xFF131318),
+    onSurface = Color(0xFFE4E1E9),
+    surfaceVariant = Color(0xFF46464F),
+    onSurfaceVariant = Color(0xFFC7C5D0),
+    surfaceContainerLowest = Color(0xFF0E0E13),
+    surfaceContainerLow = Color(0xFF1B1B21),
+    surfaceContainer = Color(0xFF1F1F25),
+    surfaceContainerHigh = Color(0xFF2A292F),
+    surfaceContainerHighest = Color(0xFF35343A),
+    outline = Color(0xFF90909A),
+    outlineVariant = Color(0xFF46464F),
+)
+
+private val priorityLight = mapOf(
+    "P1" to (Color(0xFFFFDAD6) to Color(0xFF8C1D18)),
+    "P2" to (Color(0xFFFFDCC2) to Color(0xFF6E3500)),
+    "P3" to (Color(0xFFFFEFA8) to Color(0xFF574500)),
+    "P4" to (Color(0xFFD8E2FF) to Color(0xFF0B3F8C)),
+    "P5" to (Color(0xFFE4E1EC) to Color(0xFF46464F)),
+)
+
+private val priorityDark = mapOf(
+    "P1" to (Color(0xFF93000A) to Color(0xFFFFDAD6)),
+    "P2" to (Color(0xFF6E3500) to Color(0xFFFFDCC2)),
+    "P3" to (Color(0xFF574500) to Color(0xFFFFEFA8)),
+    "P4" to (Color(0xFF0B3F8C) to Color(0xFFD8E2FF)),
+    "P5" to (Color(0xFF46464F) to Color(0xFFE4E1EC)),
+)
+
+@Composable
+fun priorityColors(priority: String): Pair<Color, Color> {
+    val colors = if (isSystemInDarkTheme()) priorityDark else priorityLight
+    return colors[priority] ?: colors.getValue("P5")
+}
 
 val personColors = listOf(
     Color(0xFF1E88E5),
@@ -41,14 +94,5 @@ val personColors = listOf(
 
 @Composable
 fun JicradeTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val scheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val ctx = LocalContext.current
-            if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-        }
-        dark -> Dark
-        else -> Light
-    }
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, content = content)
 }

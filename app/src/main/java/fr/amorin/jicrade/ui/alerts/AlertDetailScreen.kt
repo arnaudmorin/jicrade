@@ -46,7 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.amorin.jicrade.data.local.AlertEntity
 import fr.amorin.jicrade.data.repo.parseInstant
-import fr.amorin.jicrade.ui.common.PriorityChip
+import fr.amorin.jicrade.ui.common.PriorityBadge
 import fr.amorin.jicrade.ui.common.formatDateTimeYear
 import fr.amorin.jicrade.ui.common.stripEmailDomain
 
@@ -125,8 +125,8 @@ fun AlertDetailScreen(onBack: () -> Unit, vm: AlertDetailViewModel = hiltViewMod
 
 @Composable
 private fun Header(alert: AlertEntity) {
-    Row(verticalAlignment = Alignment.Top) {
-        PriorityChip(alert.priority)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        PriorityBadge(alert.priority)
         Spacer(Modifier.width(12.dp))
         Text(alert.message, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }

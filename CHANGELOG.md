@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Priority filter for open alerts: the filter button in the alert list opens a P1 to P5 slider.
+  The choice is remembered, and the list says how many lower-priority alerts are hidden.
+
+### Changed
+- Refreshed Material 3 look: indigo theme (no longer follows the wallpaper colours), softer
+  priority badges, and cleaner alert rows and tabs.
+
 ## [0.7.0] - 2026-11-27
 
 ### Added

@@ -29,6 +29,8 @@ data class AlertListState(
     val open: List<AlertEntity> = emptyList(),
     val acked: List<AlertEntity> = emptyList(),
     val closed: List<AlertEntity> = emptyList(),
+    val maxPriority: String = "P5",
+    val hiddenOpen: Int = 0,
     val teamName: String = "",
     val refreshing: Boolean = false,
     val lastSyncAt: Long = 0L,
@@ -56,8 +58,12 @@ class AlertListViewModel @Inject constructor(
         alerts.alerts(), settings.settings, sessionHolder.session, onCall.onCallNow(), transient,
     ) { list, prefs, session, onCallNow, t ->
         val sorted = list.sortedWith(compareByDescending<AlertEntity> { it.createdAt }.thenBy { it.priority })
+        val open = sorted.filter { it.isOpen }
+        val shown = open.filter { it.priority <= prefs.listMaxPriority }
         t.copy(
-            open = sorted.filter { it.isOpen },
+            open = shown,
+            maxPriority = prefs.listMaxPriority,
+            hiddenOpen = open.size - shown.size,
             acked = sorted.filter { it.isAcked },
             closed = list.filter { it.isClosed }.sortedByDescending { it.closeTime ?: it.updatedAt },
             teamName = session?.teamName.orEmpty(),
@@ -92,6 +98,10 @@ class AlertListViewModel @Inject constructor(
     fun acknowledge(id: String) = act { alerts.acknowledge(id) }
     fun unacknowledge(id: String) = act { alerts.unacknowledge(id) }
     fun close(id: String) = act { alerts.close(id) }
+
+    fun setMaxPriority(priority: String) {
+        viewModelScope.launch { settings.setListMaxPriority(priority) }
+    }
 
     fun clearError() = transient.update { it.copy(error = null) }
 
