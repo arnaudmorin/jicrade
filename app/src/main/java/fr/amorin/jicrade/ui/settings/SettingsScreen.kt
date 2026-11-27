@@ -9,11 +9,13 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -32,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -39,7 +44,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
@@ -62,6 +70,7 @@ import fr.amorin.jicrade.data.local.NotificationMode
 import fr.amorin.jicrade.data.local.PollingMode
 import fr.amorin.jicrade.ui.common.formatDateTime
 import fr.amorin.jicrade.ui.common.horizonText
+import fr.amorin.jicrade.ui.common.stripEmailDomain
 import fr.amorin.jicrade.sync.Notifications
 import fr.amorin.jicrade.sync.PhoneCalendar
 
@@ -78,6 +87,9 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     var confirmLogout by remember { mutableStateOf(false) }
+    var showRingtoneDialog by remember { mutableStateOf(false) }
+    val ringtoneTitle by vm.ringtoneTitle.collectAsStateWithLifecycle()
+    DisposableEffect(Unit) { onDispose { vm.stopSoundPreview() } }
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it); vm.clearError() } }
 
     var hasNotificationPermission by remember { mutableStateOf(Notifications.canPost(context)) }
@@ -115,8 +127,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             val s = state.session
             ListItem(
-                headlineContent = { Text(s?.displayName ?: "") },
-                supportingContent = { Text("${s?.credentials?.email ?: ""} · ${s?.site ?: ""}.atlassian.net") },
+                headlineContent = { Text(s?.displayName?.stripEmailDomain() ?: "") },
+                supportingContent = { Text("${s?.credentials?.email?.stripEmailDomain() ?: ""} · ${s?.site ?: ""}.atlassian.net") },
             )
             ListItem(
                 headlineContent = { Text("Team") },
@@ -159,11 +171,6 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            ListItem(
-                headlineContent = { Text("Override Do Not Disturb") },
-                supportingContent = { Text(if (state.settings.overrideDnd) "Alert notifications sound even in Do Not Disturb" else "Alert notifications respect Do Not Disturb") },
-                trailingContent = { Switch(checked = state.settings.overrideDnd, onCheckedChange = vm::setOverrideDnd, enabled = notificationsOn) },
-            )
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("Notify for priority", style = MaterialTheme.typography.labelLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
@@ -184,6 +191,58 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
+            ListItem(
+                headlineContent = { Text("Alert ringtone") },
+                supportingContent = { Text(ringtoneTitle) },
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.NavigateNext,
+                        contentDescription = "Change ringtone",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                modifier = Modifier.clickable(enabled = notificationsOn) {
+                    vm.loadRingtones()
+                    showRingtoneDialog = true
+                },
+            )
+            ListItem(
+                headlineContent = { Text("Ring until handled") },
+                supportingContent = { Text("Repeat the sound until the alert is opened, acknowledged or dismissed") },
+                trailingContent = { Switch(checked = state.settings.loopAlertSound, onCheckedChange = vm::setLoopAlertSound, enabled = notificationsOn) },
+            )
+            ListItem(
+                headlineContent = { Text("Minimum alarm volume") },
+                supportingContent = {
+                    Text(
+                        if (state.settings.overrideVolume) "Raises the alarm volume for alerts while on call, restored once handled"
+                        else "Uses the current alarm volume"
+                    )
+                },
+                trailingContent = { Switch(checked = state.settings.overrideVolume, onCheckedChange = vm::setOverrideVolume, enabled = notificationsOn) },
+            )
+            if (state.settings.overrideVolume && notificationsOn) {
+                var volume by remember(state.settings.alertVolume) { mutableFloatStateOf(state.settings.alertVolume.toFloat()) }
+                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Slider(
+                        value = volume,
+                        onValueChange = { volume = it },
+                        onValueChangeFinished = { vm.setAlertVolume(volume.roundToInt()) },
+                        valueRange = 10f..100f,
+                        steps = 8,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text("${volume.roundToInt()}%", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            ListItem(
+                headlineContent = { Text("Test alert notification") },
+                supportingContent = { Text("Shows a sample alert with the current sound and volume") },
+                trailingContent = {
+                    FilledTonalButton(onClick = vm::sendTestNotification, enabled = notificationsOn && hasNotificationPermission) { Text("Test") }
+                },
+            )
             HorizontalDivider()
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("Fast polling", style = MaterialTheme.typography.labelLarge)
@@ -384,6 +443,83 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             },
             dismissButton = {
                 TextButton(onClick = vm::dismissTeams) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showRingtoneDialog) {
+        val options by vm.ringtones.collectAsStateWithLifecycle()
+        var selectedUri by remember { mutableStateOf(state.settings.alertSoundUri) }
+        fun close() {
+            vm.stopSoundPreview()
+            showRingtoneDialog = false
+        }
+        AlertDialog(
+            onDismissRequest = ::close,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            title = { Text("Alert ringtone") },
+            text = {
+                val list = options
+                if (list == null) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        list.forEach { option ->
+                            val isSelected = option.uri == selectedUri
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = isSelected,
+                                        onClick = {
+                                            selectedUri = option.uri
+                                            vm.playSoundPreview(option.uri)
+                                        },
+                                        role = Role.RadioButton,
+                                    )
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = null,
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = option.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.setAlertSoundUri(selectedUri)
+                        close()
+                    },
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = ::close) {
                     Text("Cancel")
                 }
             },

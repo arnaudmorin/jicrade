@@ -15,6 +15,8 @@ object NotificationPolicy {
         }
     }
 
+    fun bypassDnd(onCall: Boolean): Boolean = onCall
+
     fun pollingWanted(mode: PollingMode, onCall: Boolean): Boolean = when (mode) {
         PollingMode.ON -> true
         PollingMode.OFF -> false

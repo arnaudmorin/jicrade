@@ -14,6 +14,7 @@ import fr.amorin.jicrade.data.repo.horizonEnd
 import fr.amorin.jicrade.data.repo.nextShift
 import fr.amorin.jicrade.sync.CalendarSyncer
 import fr.amorin.jicrade.sync.PollingController
+import fr.amorin.jicrade.ui.common.stripEmailDomain
 import fr.amorin.jicrade.ui.theme.personColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,7 +48,7 @@ data class OnCallState(
     val loadedOnce: Boolean = false,
     val error: String? = null,
 ) {
-    fun name(id: String): String = names[id] ?: id.takeLast(6)
+    fun name(id: String): String = (names[id] ?: id.takeLast(6)).stripEmailDomain()
 }
 
 @HiltViewModel
