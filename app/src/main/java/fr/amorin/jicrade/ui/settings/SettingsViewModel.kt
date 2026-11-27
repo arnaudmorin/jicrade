@@ -220,6 +220,8 @@ class SettingsViewModel @Inject constructor(
         AlarmVolume.restore(context)
     }
 
+    fun sendTestNotification() = Notifications.showTestAlert(context, state.value.settings)
+
     override fun onCleared() {
         stopSoundPreview()
     }

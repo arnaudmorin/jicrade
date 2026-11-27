@@ -87,7 +87,7 @@ object Notifications {
         }
     }
 
-    fun showNewAlert(context: Context, alert: AlertEntity, prefs: Settings) {
+    fun showNewAlert(context: Context, alert: AlertEntity, prefs: Settings, test: Boolean = false) {
         createAlertChannels(context, prefs.alertSoundUri)
         val meta = listOfNotNull(alert.priority, "#${alert.tinyId}", alert.source).joinToString(" · ")
         val body = alert.description?.takeIf { it.isNotBlank() }
@@ -95,12 +95,12 @@ object Notifications {
         val open = PendingIntent.getActivity(
             context, notificationId(alert.id),
             Intent(context, MainActivity::class.java).apply {
-                putExtra(EXTRA_ALERT_ID, alert.id)
+                if (!test) putExtra(EXTRA_ALERT_ID, alert.id)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, alertChannelId(prefs.alertSoundUri, prefs.overrideDnd))
+        val builder = NotificationCompat.Builder(context, alertChannelId(prefs.alertSoundUri, prefs.overrideDnd))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(alert.message.ifBlank { alert.entity ?: alert.alias ?: "Alert #${alert.tinyId}" })
             .setContentText(meta)
@@ -111,12 +111,27 @@ object Notifications {
             .setFullScreenIntent(open, alert.priority == "P1")
             .setAutoCancel(true)
             .setDeleteIntent(NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_DISMISS, alert.id))
-            .addAction(0, "Acknowledge", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_ACK, alert.id))
-            .addAction(0, "Close", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_CLOSE, alert.id))
-            .build()
+        if (!test) {
+            builder
+                .addAction(0, "Acknowledge", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_ACK, alert.id))
+                .addAction(0, "Close", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_CLOSE, alert.id))
+        }
+        val notification = builder.build()
         if (prefs.overrideVolume && prefs.overrideDnd) AlarmVolume.raise(context, prefs.alertVolume)
         if (prefs.loopAlertSound) notification.flags = notification.flags or Notification.FLAG_INSISTENT
         post(context, notificationId(alert.id), notification)
+    }
+
+    fun showTestAlert(context: Context, prefs: Settings) {
+        val now = System.currentTimeMillis()
+        val alert = AlertEntity(
+            id = "test-alert", tinyId = "0", message = "Test alert", description = "Notifications are working",
+            status = "open", priority = "P1", acknowledged = false, count = 1, owner = null, source = "Jicrade",
+            entity = null, alias = null, tags = emptyList(), extraProperties = emptyMap(), responders = emptyList(),
+            integrationName = null, createdAt = now, updatedAt = now, lastOccurredAt = null, ackTime = null,
+            closeTime = null, snoozed = false, snoozedUntil = null, seen = false,
+        )
+        showNewAlert(context, alert, prefs, test = true)
     }
 
     fun showAcked(context: Context, alert: AlertEntity) {

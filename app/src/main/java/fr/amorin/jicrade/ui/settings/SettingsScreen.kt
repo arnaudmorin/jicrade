@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -244,6 +245,13 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     Text("${volume.roundToInt()}%", style = MaterialTheme.typography.labelMedium)
                 }
             }
+            ListItem(
+                headlineContent = { Text("Test alert notification") },
+                supportingContent = { Text("Shows a sample alert with the current sound and volume") },
+                trailingContent = {
+                    FilledTonalButton(onClick = vm::sendTestNotification, enabled = notificationsOn && hasNotificationPermission) { Text("Test") }
+                },
+            )
             HorizontalDivider()
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("Fast polling", style = MaterialTheme.typography.labelLarge)
