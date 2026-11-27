@@ -37,6 +37,7 @@ data class Settings(
     val calendarSyncedCount: Int = 0,
     val calendarSyncError: String? = null,
     val alertSoundUri: String? = null,
+    val loopAlertSound: Boolean = true,
 )
 
 @Singleton
@@ -55,6 +56,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val calendarSyncedCount = intPreferencesKey("calendar_synced_count")
     private val calendarSyncError = stringPreferencesKey("calendar_sync_error")
     private val alertSoundUri = stringPreferencesKey("alert_sound_uri")
+    private val loopAlertSound = booleanPreferencesKey("loop_alert_sound")
     private val legacyOnCallMode = booleanPreferencesKey("on_call_mode")
     private val legacyNotificationsEnabled = booleanPreferencesKey("notifications_enabled")
 
@@ -76,6 +78,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             calendarSyncedCount = p[calendarSyncedCount] ?: 0,
             calendarSyncError = p[calendarSyncError],
             alertSoundUri = p[alertSoundUri],
+            loopAlertSound = p[loopAlertSound] ?: true,
         )
     }
 
@@ -100,5 +103,6 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     suspend fun setAlertSoundUri(uri: String?) = context.dataStore.edit {
         if (uri != null) it[alertSoundUri] = uri else it.remove(alertSoundUri)
     }
+    suspend fun setLoopAlertSound(enabled: Boolean) = context.dataStore.edit { it[loopAlertSound] = enabled }
     suspend fun clear() = context.dataStore.edit { it.clear() }
 }

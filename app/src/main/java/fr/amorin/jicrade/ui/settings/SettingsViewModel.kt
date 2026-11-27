@@ -175,6 +175,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setLoopAlertSound(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setLoopAlertSound(enabled) }
+    }
+
     fun setAlertSoundUri(uri: String?) {
         viewModelScope.launch {
             settingsStore.setAlertSoundUri(uri)

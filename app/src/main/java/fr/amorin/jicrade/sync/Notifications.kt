@@ -1,5 +1,6 @@
 package fr.amorin.jicrade.sync
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -78,7 +79,7 @@ object Notifications {
         Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    fun post(context: Context, id: Int, notification: android.app.Notification) {
+    fun post(context: Context, id: Int, notification: Notification) {
         if (!canPost(context)) return
         try {
             NotificationManagerCompat.from(context).notify(id, notification)
@@ -112,6 +113,7 @@ object Notifications {
             .addAction(0, "Acknowledge", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_ACK, alert.id))
             .addAction(0, "Close", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_CLOSE, alert.id))
             .build()
+        if (prefs.loopAlertSound) notification.flags = notification.flags or Notification.FLAG_INSISTENT
         post(context, notificationId(alert.id), notification)
     }
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Alert ringtone picker in settings, with a short preview of each sound.
+- Alert notifications keep ringing until opened, acknowledged or dismissed (can be turned off).
 
 ### Changed
 - Alerts are listed by creation date (most recent first) instead of by priority.

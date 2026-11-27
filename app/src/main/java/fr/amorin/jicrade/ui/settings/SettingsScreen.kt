@@ -207,6 +207,11 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     showRingtoneDialog = true
                 },
             )
+            ListItem(
+                headlineContent = { Text("Ring until handled") },
+                supportingContent = { Text("Repeat the sound until the alert is opened, acknowledged or dismissed") },
+                trailingContent = { Switch(checked = state.settings.loopAlertSound, onCheckedChange = vm::setLoopAlertSound, enabled = notificationsOn) },
+            )
             HorizontalDivider()
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("Fast polling", style = MaterialTheme.typography.labelLarge)
