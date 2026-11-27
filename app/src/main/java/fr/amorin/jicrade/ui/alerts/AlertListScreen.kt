@@ -48,6 +48,7 @@ import fr.amorin.jicrade.ui.common.EmptyState
 import fr.amorin.jicrade.ui.common.PriorityChip
 import fr.amorin.jicrade.ui.common.formatTime
 import fr.amorin.jicrade.ui.common.relativeAge
+import fr.amorin.jicrade.ui.common.stripEmailDomain
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -150,7 +151,7 @@ private fun AlertRow(alert: AlertEntity, onClick: () -> Unit, onAck: () -> Unit,
                 Text("#${alert.tinyId}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(relativeAge(alert.createdAt), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (alert.count > 1) Text("×${alert.count}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                alert.owner?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                alert.owner?.let { Text(it.stripEmailDomain(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     ?: alert.source?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }

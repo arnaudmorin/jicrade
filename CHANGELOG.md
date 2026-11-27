@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Alerts are listed by creation date (most recent first) instead of by priority.
+- The `@domain` part of email addresses is no longer displayed.
 
 ## [0.6.0] - 2026-11-25
 
