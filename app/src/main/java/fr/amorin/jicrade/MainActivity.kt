@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import fr.amorin.jicrade.data.auth.SessionHolder
+import fr.amorin.jicrade.sync.AlarmVolume
 import fr.amorin.jicrade.sync.Notifications
 import fr.amorin.jicrade.sync.PollingController
 import fr.amorin.jicrade.ui.AppNav
@@ -51,6 +52,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        AlarmVolume.restore(this)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -20,6 +20,7 @@ import fr.amorin.jicrade.data.remote.toUserMessage
 import fr.amorin.jicrade.data.repo.AuthRepository
 import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.nextShift
+import fr.amorin.jicrade.sync.AlarmVolume
 import fr.amorin.jicrade.sync.CalendarSyncScheduler
 import fr.amorin.jicrade.sync.CalendarSyncer
 import fr.amorin.jicrade.sync.Notifications
@@ -179,6 +180,15 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsStore.setLoopAlertSound(enabled) }
     }
 
+    fun setOverrideVolume(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setOverrideVolume(enabled) }
+    }
+
+    fun setAlertVolume(percent: Int) {
+        viewModelScope.launch { settingsStore.setAlertVolume(percent) }
+        playSoundPreview(state.value.settings.alertSoundUri, percent)
+    }
+
     fun setAlertSoundUri(uri: String?) {
         viewModelScope.launch {
             settingsStore.setAlertSoundUri(uri)
@@ -186,13 +196,15 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun playSoundPreview(uri: String?) {
+    fun playSoundPreview(uri: String?, volumePercent: Int? = null) {
         stopSoundPreview()
         val ringtone = RingtoneManager.getRingtone(context, uri?.let(Uri::parse) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)) ?: return
         ringtone.audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
+        val prefs = state.value.settings
+        (volumePercent ?: prefs.alertVolume.takeIf { prefs.overrideVolume && prefs.overrideDnd })?.let { AlarmVolume.raise(context, it) }
         runCatching { ringtone.play() }
         previewRingtone = ringtone
         viewModelScope.launch {
@@ -202,8 +214,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun stopSoundPreview() {
-        runCatching { previewRingtone?.stop() }
+        val ringtone = previewRingtone ?: return
+        runCatching { ringtone.stop() }
         previewRingtone = null
+        AlarmVolume.restore(context)
     }
 
     override fun onCleared() {

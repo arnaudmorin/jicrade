@@ -17,6 +17,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
     @Inject lateinit var alerts: AlertRepository
 
     override fun onReceive(context: Context, intent: Intent) {
+        AlarmVolume.restore(context)
+        if (intent.action == ACTION_DISMISS) return
         val alertId = intent.getStringExtra(Notifications.EXTRA_ALERT_ID) ?: return
         val action = intent.action ?: return
         Notifications.cancel(context, alertId)
@@ -37,6 +39,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_ACK = "fr.amorin.jicrade.ACK"
         const val ACTION_CLOSE = "fr.amorin.jicrade.CLOSE"
+        const val ACTION_DISMISS = "fr.amorin.jicrade.DISMISS"
 
         fun pendingIntent(context: Context, action: String, alertId: String): PendingIntent =
             PendingIntent.getBroadcast(

@@ -110,9 +110,11 @@ object Notifications {
             .setContentIntent(open)
             .setFullScreenIntent(open, alert.priority == "P1")
             .setAutoCancel(true)
+            .setDeleteIntent(NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_DISMISS, alert.id))
             .addAction(0, "Acknowledge", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_ACK, alert.id))
             .addAction(0, "Close", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_CLOSE, alert.id))
             .build()
+        if (prefs.overrideVolume && prefs.overrideDnd) AlarmVolume.raise(context, prefs.alertVolume)
         if (prefs.loopAlertSound) notification.flags = notification.flags or Notification.FLAG_INSISTENT
         post(context, notificationId(alert.id), notification)
     }

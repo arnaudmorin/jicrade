@@ -38,6 +38,8 @@ data class Settings(
     val calendarSyncError: String? = null,
     val alertSoundUri: String? = null,
     val loopAlertSound: Boolean = true,
+    val overrideVolume: Boolean = false,
+    val alertVolume: Int = 100,
 )
 
 @Singleton
@@ -57,6 +59,8 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val calendarSyncError = stringPreferencesKey("calendar_sync_error")
     private val alertSoundUri = stringPreferencesKey("alert_sound_uri")
     private val loopAlertSound = booleanPreferencesKey("loop_alert_sound")
+    private val overrideVolume = booleanPreferencesKey("override_volume")
+    private val alertVolume = intPreferencesKey("alert_volume")
     private val legacyOnCallMode = booleanPreferencesKey("on_call_mode")
     private val legacyNotificationsEnabled = booleanPreferencesKey("notifications_enabled")
 
@@ -79,6 +83,8 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             calendarSyncError = p[calendarSyncError],
             alertSoundUri = p[alertSoundUri],
             loopAlertSound = p[loopAlertSound] ?: true,
+            overrideVolume = p[overrideVolume] ?: false,
+            alertVolume = p[alertVolume] ?: 100,
         )
     }
 
@@ -104,5 +110,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         if (uri != null) it[alertSoundUri] = uri else it.remove(alertSoundUri)
     }
     suspend fun setLoopAlertSound(enabled: Boolean) = context.dataStore.edit { it[loopAlertSound] = enabled }
+    suspend fun setOverrideVolume(enabled: Boolean) = context.dataStore.edit { it[overrideVolume] = enabled }
+    suspend fun setAlertVolume(percent: Int) = context.dataStore.edit { it[alertVolume] = percent.coerceIn(10, 100) }
     suspend fun clear() = context.dataStore.edit { it.clear() }
 }

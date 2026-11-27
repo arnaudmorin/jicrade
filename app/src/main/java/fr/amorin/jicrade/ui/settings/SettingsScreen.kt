@@ -35,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -44,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +56,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
@@ -212,6 +215,35 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 supportingContent = { Text("Repeat the sound until the alert is opened, acknowledged or dismissed") },
                 trailingContent = { Switch(checked = state.settings.loopAlertSound, onCheckedChange = vm::setLoopAlertSound, enabled = notificationsOn) },
             )
+            val volumeAvailable = notificationsOn && state.settings.overrideDnd
+            ListItem(
+                headlineContent = { Text("Minimum alarm volume") },
+                supportingContent = {
+                    Text(
+                        when {
+                            !state.settings.overrideDnd -> "Only for alerts that override Do Not Disturb"
+                            state.settings.overrideVolume -> "Raises the alarm volume for alerts, restored once handled"
+                            else -> "Uses the current alarm volume"
+                        }
+                    )
+                },
+                trailingContent = { Switch(checked = state.settings.overrideVolume, onCheckedChange = vm::setOverrideVolume, enabled = volumeAvailable) },
+            )
+            if (state.settings.overrideVolume && volumeAvailable) {
+                var volume by remember(state.settings.alertVolume) { mutableFloatStateOf(state.settings.alertVolume.toFloat()) }
+                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Slider(
+                        value = volume,
+                        onValueChange = { volume = it },
+                        onValueChangeFinished = { vm.setAlertVolume(volume.roundToInt()) },
+                        valueRange = 10f..100f,
+                        steps = 8,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text("${volume.roundToInt()}%", style = MaterialTheme.typography.labelMedium)
+                }
+            }
             HorizontalDivider()
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("Fast polling", style = MaterialTheme.typography.labelLarge)
