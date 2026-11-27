@@ -53,6 +53,12 @@ class NotificationPolicyTest {
     }
 
     @Test
+    fun dndBypassedOnlyWhileOnCall() {
+        assertTrue(NotificationPolicy.bypassDnd(onCall = true))
+        assertFalse(NotificationPolicy.bypassDnd(onCall = false))
+    }
+
+    @Test
     fun pollingFollowsMode() {
         assertTrue(NotificationPolicy.pollingWanted(PollingMode.ON, onCall = false))
         assertFalse(NotificationPolicy.pollingWanted(PollingMode.OFF, onCall = true))

@@ -26,7 +26,6 @@ data class Settings(
     val pollIntervalSeconds: Int = 60,
     val pollingMode: PollingMode = PollingMode.AUTO,
     val notificationMode: NotificationMode = NotificationMode.ON_CALL,
-    val overrideDnd: Boolean = true,
     val minPriority: String = "P3",
     val notifyOnAck: Boolean = false,
     val backgroundSync: Boolean = true,
@@ -47,7 +46,6 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val pollInterval = intPreferencesKey("poll_interval_seconds")
     private val pollingMode = stringPreferencesKey("polling_mode")
     private val notificationMode = stringPreferencesKey("notification_mode")
-    private val overrideDnd = booleanPreferencesKey("override_dnd")
     private val minPriority = stringPreferencesKey("min_priority")
     private val notifyOnAck = booleanPreferencesKey("notify_on_ack")
     private val backgroundSync = booleanPreferencesKey("background_sync")
@@ -71,7 +69,6 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
                 ?: if (p[legacyOnCallMode] == true) PollingMode.ON else PollingMode.AUTO,
             notificationMode = p[notificationMode]?.let { runCatching { NotificationMode.valueOf(it) }.getOrNull() }
                 ?: if (p[legacyNotificationsEnabled] == false) NotificationMode.NEVER else NotificationMode.ON_CALL,
-            overrideDnd = p[overrideDnd] ?: true,
             minPriority = p[minPriority] ?: "P3",
             notifyOnAck = p[notifyOnAck] ?: false,
             backgroundSync = p[backgroundSync] ?: true,
@@ -93,7 +90,6 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     suspend fun setPollInterval(seconds: Int) = context.dataStore.edit { it[pollInterval] = seconds }
     suspend fun setPollingMode(mode: PollingMode) = context.dataStore.edit { it[pollingMode] = mode.name }
     suspend fun setNotificationMode(mode: NotificationMode) = context.dataStore.edit { it[notificationMode] = mode.name }
-    suspend fun setOverrideDnd(enabled: Boolean) = context.dataStore.edit { it[overrideDnd] = enabled }
     suspend fun setMinPriority(priority: String) = context.dataStore.edit { it[minPriority] = priority }
     suspend fun setNotifyOnAck(enabled: Boolean) = context.dataStore.edit { it[notifyOnAck] = enabled }
     suspend fun setBackgroundSync(enabled: Boolean) = context.dataStore.edit { it[backgroundSync] = enabled }

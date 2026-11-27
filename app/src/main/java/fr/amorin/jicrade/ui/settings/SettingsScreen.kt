@@ -171,11 +171,6 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            ListItem(
-                headlineContent = { Text("Override Do Not Disturb") },
-                supportingContent = { Text(if (state.settings.overrideDnd) "Alert notifications sound even in Do Not Disturb" else "Alert notifications respect Do Not Disturb") },
-                trailingContent = { Switch(checked = state.settings.overrideDnd, onCheckedChange = vm::setOverrideDnd, enabled = notificationsOn) },
-            )
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("Notify for priority", style = MaterialTheme.typography.labelLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
@@ -216,21 +211,17 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 supportingContent = { Text("Repeat the sound until the alert is opened, acknowledged or dismissed") },
                 trailingContent = { Switch(checked = state.settings.loopAlertSound, onCheckedChange = vm::setLoopAlertSound, enabled = notificationsOn) },
             )
-            val volumeAvailable = notificationsOn && state.settings.overrideDnd
             ListItem(
                 headlineContent = { Text("Minimum alarm volume") },
                 supportingContent = {
                     Text(
-                        when {
-                            !state.settings.overrideDnd -> "Only for alerts that override Do Not Disturb"
-                            state.settings.overrideVolume -> "Raises the alarm volume for alerts, restored once handled"
-                            else -> "Uses the current alarm volume"
-                        }
+                        if (state.settings.overrideVolume) "Raises the alarm volume for alerts while on call, restored once handled"
+                        else "Uses the current alarm volume"
                     )
                 },
-                trailingContent = { Switch(checked = state.settings.overrideVolume, onCheckedChange = vm::setOverrideVolume, enabled = volumeAvailable) },
+                trailingContent = { Switch(checked = state.settings.overrideVolume, onCheckedChange = vm::setOverrideVolume, enabled = notificationsOn) },
             )
-            if (state.settings.overrideVolume && volumeAvailable) {
+            if (state.settings.overrideVolume && notificationsOn) {
                 var volume by remember(state.settings.alertVolume) { mutableFloatStateOf(state.settings.alertVolume.toFloat()) }
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Slider(

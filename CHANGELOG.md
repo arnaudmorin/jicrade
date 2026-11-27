@@ -10,13 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Alert ringtone picker in settings, with a short preview of each sound.
 - Alert notifications keep ringing until opened, acknowledged or dismissed (can be turned off).
-- Minimum alarm volume for alerts that override Do Not Disturb. The previous volume is
+- Minimum alarm volume for alerts while on call. The previous volume is
   restored once the alert is handled or the app is opened.
 - "Test alert notification" button in settings.
 
 ### Changed
 - Alerts are listed by creation date (most recent first) instead of by priority.
 - The `@domain` part of email addresses is no longer displayed.
+- The Override Do Not Disturb setting is gone: alerts ring through Do Not Disturb while you are
+  on call and respect it otherwise.
 - Alerts that bypass Do Not Disturb now ring on the alarm stream, so a low notification volume
   no longer hides them. Existing alert channel customisations are reset.
 

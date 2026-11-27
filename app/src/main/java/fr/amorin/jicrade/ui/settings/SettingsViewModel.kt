@@ -23,6 +23,7 @@ import fr.amorin.jicrade.data.repo.nextShift
 import fr.amorin.jicrade.sync.AlarmVolume
 import fr.amorin.jicrade.sync.CalendarSyncScheduler
 import fr.amorin.jicrade.sync.CalendarSyncer
+import fr.amorin.jicrade.sync.NotificationPolicy
 import fr.amorin.jicrade.sync.Notifications
 import fr.amorin.jicrade.sync.OnCallPollingService
 import fr.amorin.jicrade.sync.PollingController
@@ -87,10 +88,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setNotificationMode(mode: NotificationMode) {
         viewModelScope.launch { settingsStore.setNotificationMode(mode) }
-    }
-
-    fun setOverrideDnd(enabled: Boolean) {
-        viewModelScope.launch { settingsStore.setOverrideDnd(enabled) }
     }
 
     fun setPollingMode(mode: PollingMode) {
@@ -204,7 +201,7 @@ class SettingsViewModel @Inject constructor(
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         val prefs = state.value.settings
-        (volumePercent ?: prefs.alertVolume.takeIf { prefs.overrideVolume && prefs.overrideDnd })?.let { AlarmVolume.raise(context, it) }
+        (volumePercent ?: prefs.alertVolume.takeIf { prefs.overrideVolume })?.let { AlarmVolume.raise(context, it) }
         runCatching { ringtone.play() }
         previewRingtone = ringtone
         viewModelScope.launch {
@@ -220,7 +217,7 @@ class SettingsViewModel @Inject constructor(
         AlarmVolume.restore(context)
     }
 
-    fun sendTestNotification() = Notifications.showTestAlert(context, state.value.settings)
+    fun sendTestNotification() = Notifications.showTestAlert(context, state.value.settings, NotificationPolicy.bypassDnd(state.value.onCallNow))
 
     override fun onCleared() {
         stopSoundPreview()

@@ -27,11 +27,11 @@ class NewAlertNotifier @Inject constructor(
         val accountId = sessionHolder.session.value?.accountId ?: return
 
         val candidates = result.newAlerts.filter { it.priority <= prefs.minPriority }
-        val onCall = prefs.notificationMode == NotificationMode.ON_CALL && candidates.isNotEmpty() &&
+        val onCall = candidates.isNotEmpty() &&
             runCatching { onCallRepository.amIOnCall() }.getOrDefault(false)
         NotificationPolicy.select(candidates, prefs, onCall, accountId)
             .map { withDetails(it) }
-            .forEach { Notifications.showNewAlert(context, it, prefs) }
+            .forEach { Notifications.showNewAlert(context, it, prefs, NotificationPolicy.bypassDnd(onCall)) }
 
         if (prefs.notifyOnAck) {
             result.resolved.filter { it.isAcked }.forEach { Notifications.showAcked(context, it) }

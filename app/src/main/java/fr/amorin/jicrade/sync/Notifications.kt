@@ -87,7 +87,7 @@ object Notifications {
         }
     }
 
-    fun showNewAlert(context: Context, alert: AlertEntity, prefs: Settings, test: Boolean = false) {
+    fun showNewAlert(context: Context, alert: AlertEntity, prefs: Settings, bypassDnd: Boolean, test: Boolean = false) {
         createAlertChannels(context, prefs.alertSoundUri)
         val meta = listOfNotNull(alert.priority, "#${alert.tinyId}", alert.source).joinToString(" · ")
         val body = alert.description?.takeIf { it.isNotBlank() }
@@ -100,7 +100,7 @@ object Notifications {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val builder = NotificationCompat.Builder(context, alertChannelId(prefs.alertSoundUri, prefs.overrideDnd))
+        val builder = NotificationCompat.Builder(context, alertChannelId(prefs.alertSoundUri, bypassDnd))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(alert.message.ifBlank { alert.entity ?: alert.alias ?: "Alert #${alert.tinyId}" })
             .setContentText(meta)
@@ -117,12 +117,12 @@ object Notifications {
                 .addAction(0, "Close", NotificationActionReceiver.pendingIntent(context, NotificationActionReceiver.ACTION_CLOSE, alert.id))
         }
         val notification = builder.build()
-        if (prefs.overrideVolume && prefs.overrideDnd) AlarmVolume.raise(context, prefs.alertVolume)
+        if (prefs.overrideVolume && bypassDnd) AlarmVolume.raise(context, prefs.alertVolume)
         if (prefs.loopAlertSound) notification.flags = notification.flags or Notification.FLAG_INSISTENT
         post(context, notificationId(alert.id), notification)
     }
 
-    fun showTestAlert(context: Context, prefs: Settings) {
+    fun showTestAlert(context: Context, prefs: Settings, bypassDnd: Boolean) {
         val now = System.currentTimeMillis()
         val alert = AlertEntity(
             id = "test-alert", tinyId = "0", message = "Test alert", description = "Notifications are working",
@@ -131,7 +131,7 @@ object Notifications {
             integrationName = null, createdAt = now, updatedAt = now, lastOccurredAt = null, ackTime = null,
             closeTime = null, snoozed = false, snoozedUntil = null, seen = false,
         )
-        showNewAlert(context, alert, prefs, test = true)
+        showNewAlert(context, alert, prefs, bypassDnd, test = true)
     }
 
     fun showAcked(context: Context, alert: AlertEntity) {
