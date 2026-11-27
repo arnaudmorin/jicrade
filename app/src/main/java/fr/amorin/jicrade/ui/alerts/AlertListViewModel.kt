@@ -55,7 +55,7 @@ class AlertListViewModel @Inject constructor(
     val state: StateFlow<AlertListState> = combine(
         alerts.alerts(), settings.settings, sessionHolder.session, onCall.onCallNow(), transient,
     ) { list, prefs, session, onCallNow, t ->
-        val sorted = list.sortedWith(compareBy<AlertEntity> { it.priority }.thenByDescending { it.createdAt })
+        val sorted = list.sortedWith(compareByDescending<AlertEntity> { it.createdAt }.thenBy { it.priority })
         t.copy(
             open = sorted.filter { it.isOpen },
             acked = sorted.filter { it.isAcked },
