@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Alert ringtone picker in settings, with a short preview of each sound.
+
 ### Changed
 - Alerts are listed by creation date (most recent first) instead of by priority.
 - The `@domain` part of email addresses is no longer displayed.
+- Alerts that bypass Do Not Disturb now ring on the alarm stream, so a low notification volume
+  no longer hides them. Existing alert channel customisations are reset.
 
 ## [0.6.0] - 2026-11-25
 

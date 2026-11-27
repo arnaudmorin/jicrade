@@ -27,6 +27,7 @@ class JicradeApp : Application(), Configuration.Provider {
         Notifications.createChannels(this)
         CoroutineScope(Dispatchers.IO).launch {
             val current = settings.settings.first()
+            Notifications.createAlertChannels(this@JicradeApp, current.alertSoundUri)
             SyncScheduler.applyBackgroundSync(this@JicradeApp, current.backgroundSync)
             CalendarSyncScheduler.apply(this@JicradeApp, current.calendarSync)
         }

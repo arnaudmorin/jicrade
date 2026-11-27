@@ -36,6 +36,7 @@ data class Settings(
     val calendarSyncedAt: Long = 0L,
     val calendarSyncedCount: Int = 0,
     val calendarSyncError: String? = null,
+    val alertSoundUri: String? = null,
 )
 
 @Singleton
@@ -53,6 +54,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val calendarSyncedAt = longPreferencesKey("calendar_synced_at")
     private val calendarSyncedCount = intPreferencesKey("calendar_synced_count")
     private val calendarSyncError = stringPreferencesKey("calendar_sync_error")
+    private val alertSoundUri = stringPreferencesKey("alert_sound_uri")
     private val legacyOnCallMode = booleanPreferencesKey("on_call_mode")
     private val legacyNotificationsEnabled = booleanPreferencesKey("notifications_enabled")
 
@@ -73,6 +75,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             calendarSyncedAt = p[calendarSyncedAt] ?: 0L,
             calendarSyncedCount = p[calendarSyncedCount] ?: 0,
             calendarSyncError = p[calendarSyncError],
+            alertSoundUri = p[alertSoundUri],
         )
     }
 
@@ -94,5 +97,8 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         it.remove(calendarSyncError)
     }
     suspend fun setCalendarSyncError(message: String) = context.dataStore.edit { it[calendarSyncError] = message }
+    suspend fun setAlertSoundUri(uri: String?) = context.dataStore.edit {
+        if (uri != null) it[alertSoundUri] = uri else it.remove(alertSoundUri)
+    }
     suspend fun clear() = context.dataStore.edit { it.clear() }
 }

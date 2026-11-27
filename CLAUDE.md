@@ -50,7 +50,9 @@ ui           Compose screens per feature with Hilt ViewModels; AppNav holds bott
   timeline periods as fallback). `PollingController.evaluate()` starts/stops the foreground
   service and arms an exact alarm for the next shift boundary.
 - Two "new alert" channels exist because Android freezes a channel's DND bypass after creation:
-  `alerts_new` (bypasses DND) and `alerts_new_quiet`; the Override DND setting picks one.
+  `alerts_new_v2` (bypasses DND, alarm stream) and `alerts_new_quiet_v2`; the Override DND
+  setting picks one. A custom ringtone suffixes both ids with the sound URI hash, and
+  `Notifications.createAlertChannels` deletes every other `alerts_new*` channel.
 
 ## Conventions
 

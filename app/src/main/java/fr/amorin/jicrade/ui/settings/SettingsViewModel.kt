@@ -1,6 +1,10 @@
 package fr.amorin.jicrade.ui.settings
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,17 +22,25 @@ import fr.amorin.jicrade.data.repo.OnCallRepository
 import fr.amorin.jicrade.data.repo.nextShift
 import fr.amorin.jicrade.sync.CalendarSyncScheduler
 import fr.amorin.jicrade.sync.CalendarSyncer
+import fr.amorin.jicrade.sync.Notifications
 import fr.amorin.jicrade.sync.OnCallPollingService
 import fr.amorin.jicrade.sync.PollingController
 import fr.amorin.jicrade.sync.SyncScheduler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class RingtoneOption(val uri: String?, val title: String)
 
 data class SettingsState(
     val session: Session? = null,
@@ -128,6 +140,70 @@ class SettingsViewModel @Inject constructor(
 
     fun setNotifyOnAck(enabled: Boolean) {
         viewModelScope.launch { settingsStore.setNotifyOnAck(enabled) }
+    }
+
+    val ringtones = MutableStateFlow<List<RingtoneOption>?>(null)
+    private var previewRingtone: Ringtone? = null
+
+    val ringtoneTitle: StateFlow<String> = settingsStore.settings
+        .map { it.alertSoundUri }
+        .distinctUntilChanged()
+        .map { uri -> if (uri == null) "Default alarm" else ringtoneTitle(Uri.parse(uri)) ?: "Custom sound" }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    private fun ringtoneTitle(uri: Uri): String? =
+        runCatching { RingtoneManager.getRingtone(context, uri)?.getTitle(context) }.getOrNull()
+
+    fun loadRingtones() {
+        if (ringtones.value != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val defaultTitle = ringtoneTitle(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+            val list = mutableListOf(RingtoneOption(null, defaultTitle?.let { "Default alarm ($it)" } ?: "Default alarm"))
+            val manager = RingtoneManager(context).apply {
+                setType(RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_NOTIFICATION or RingtoneManager.TYPE_RINGTONE)
+            }
+            runCatching {
+                val cursor = manager.cursor
+                while (cursor.moveToNext()) {
+                    val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX) ?: continue
+                    val uri = manager.getRingtoneUri(cursor.position) ?: continue
+                    list += RingtoneOption(uri.toString(), title)
+                }
+            }
+            ringtones.value = list.distinctBy { it.uri }
+        }
+    }
+
+    fun setAlertSoundUri(uri: String?) {
+        viewModelScope.launch {
+            settingsStore.setAlertSoundUri(uri)
+            Notifications.createAlertChannels(context, uri)
+        }
+    }
+
+    fun playSoundPreview(uri: String?) {
+        stopSoundPreview()
+        val ringtone = RingtoneManager.getRingtone(context, uri?.let(Uri::parse) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)) ?: return
+        ringtone.audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        runCatching { ringtone.play() }
+        previewRingtone = ringtone
+        viewModelScope.launch {
+            delay(3_000)
+            if (previewRingtone === ringtone) stopSoundPreview()
+        }
+    }
+
+    fun stopSoundPreview() {
+        runCatching { previewRingtone?.stop() }
+        previewRingtone = null
+    }
+
+    override fun onCleared() {
+        stopSoundPreview()
     }
 
     fun loadTeams() {

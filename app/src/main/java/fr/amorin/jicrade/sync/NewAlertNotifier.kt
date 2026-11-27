@@ -31,7 +31,7 @@ class NewAlertNotifier @Inject constructor(
             runCatching { onCallRepository.amIOnCall() }.getOrDefault(false)
         NotificationPolicy.select(candidates, prefs, onCall, accountId)
             .map { withDetails(it) }
-            .forEach { Notifications.showNewAlert(context, it, bypassDnd = prefs.overrideDnd) }
+            .forEach { Notifications.showNewAlert(context, it, prefs) }
 
         if (prefs.notifyOnAck) {
             result.resolved.filter { it.isAcked }.forEach { Notifications.showAcked(context, it) }
