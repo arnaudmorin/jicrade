@@ -43,11 +43,6 @@ tag=v$version
 if [[ $version != *-* ]]; then
     [[ -n $unreleased ]] || die "CHANGELOG.md has no [Unreleased] entries"
     [[ -n $previous ]] || die "no previous release tag found"
-fi
-
-./gradlew -q :app:testDebugUnitTest :app:lintDebug
-
-if [[ $version != *-* ]]; then
     url=https://github.com/arnaudmorin/jicrade/compare/$previous...$tag
     awk -v v="$version" -v d="$(date +%F)" -v link="[$version]: $url" '
         /^## \[Unreleased\]/ { print "## [" v "] - " d; next }

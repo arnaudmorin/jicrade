@@ -65,7 +65,7 @@ run. Pushing a tag starting with `v` publishes a GitHub release with the APK (ta
 
 It picks the next version from the `[Unreleased]` CHANGELOG section (minor bump for Added,
 Changed or Removed entries, patch bump otherwise) and asks to confirm; pass a version to force
-one. It then runs the tests and lint, turns `[Unreleased]` into the new version, commits
+one. It then turns `[Unreleased]` into the new version, commits
 `Release X.Y.Z`, creates a signed `vX.Y.Z` tag and asks before pushing both. Pre-releases
 (`./release.sh 0.7.0-rc1`) only get the tag.
 
